@@ -23,6 +23,11 @@ struct RunCard: View {
                 // Header with date and distance
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
+                        Text(run.generatedTitle)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .lineLimit(1)
+                        
                         Text(run.date, style: .date)
                             .font(.caption)
                             .foregroundColor(.secondary)

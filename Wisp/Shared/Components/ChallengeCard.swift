@@ -13,11 +13,12 @@ struct ChallengeCard: View {
             // Challenge header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(challenge.title)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .lineLimit(2)
-                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        Text(challenge.title)
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .lineLimit(1)
+                    }
                     Text(challenge.description)
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -82,7 +83,7 @@ struct ChallengeCard: View {
             // Action button
             WispButton(
                 title: challenge.isJoined ? "View Progress" : "Join Challenge",
-                style: challenge.isJoined ? .secondary : .primary,
+                style: challenge.isJoined ? .icon : .icon,
                 icon: challenge.isJoined ? "chart.bar" : "plus"
             ) {
                 handleButtonTap()

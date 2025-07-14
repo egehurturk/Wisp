@@ -6,7 +6,12 @@ struct HomeView: View {
     // MARK: - Properties
     @StateObject private var viewModel = HomeViewModel()
     @State private var scrollOffset: CGFloat = 0
+    @State private var showingCreateChallenge = false
+    @State private var showingProfileMenu = false
     private let logger = Logger.ui
+    
+    // Callback to switch tabs - will be provided by parent
+    var onNavigateToRuns: (() -> Void)?
     
     // MARK: - Body
     var body: some View {
@@ -37,6 +42,66 @@ struct HomeView: View {
             logger.info("HomeView appeared")
             viewModel.loadData()
         }
+        .sheet(isPresented: $showingCreateChallenge) {
+            CreateChallengeView()
+        }
+        .overlay(
+            // Profile dropdown overlay
+            Group {
+                if showingProfileMenu {
+                    ZStack {
+                        // Background overlay to detect taps outside
+                        Color.black.opacity(0.001)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    showingProfileMenu = false
+                                }
+                            }
+                        
+                        // Dropdown menu positioned below profile picture
+                        VStack {
+                            HStack {
+                                Spacer()
+                                ProfileDropdownMenu(
+                                    userName: "John Doe",
+                                    userLocation: "San Francisco, CA",
+                                    onEditProfile: {
+                                        handleEditProfile()
+                                    },
+                                    onSettings: {
+                                        handleSettings()
+                                    },
+                                    onNotifications: {
+                                        handleNotifications()
+                                    },
+                                    onHelp: {
+                                        handleHelp()
+                                    },
+                                    onSignOut: {
+                                        handleSignOut()
+                                    },
+                                    onDismiss: {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            showingProfileMenu = false
+                                        }
+                                    }
+                                )
+                                .padding(.trailing, 20)
+                            }
+                            .padding(.top, 130) // Position below profile section
+                            
+                            Spacer()
+                        }
+                    }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .move(edge: .top).combined(with: .opacity)
+                    ))
+                    .zIndex(1000)
+                }
+            }
+        )
     }
     
     
@@ -184,12 +249,44 @@ struct HomeView: View {
     // MARK: - Private Methods
     private func handleProfileTap() {
         logger.info("Profile button tapped")
-        // TODO: Navigate to profile screen
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            showingProfileMenu.toggle()
+        }
+    }
+    
+    private func handleEditProfile() {
+        logger.info("Edit profile tapped")
+        showingProfileMenu = false
+        // TODO: Navigate to edit profile screen
+    }
+    
+    private func handleSettings() {
+        logger.info("Settings tapped")
+        showingProfileMenu = false
+        // TODO: Navigate to settings screen
+    }
+    
+    private func handleNotifications() {
+        logger.info("Notifications tapped")
+        showingProfileMenu = false
+        // TODO: Navigate to notifications screen
+    }
+    
+    private func handleHelp() {
+        logger.info("Help tapped")
+        showingProfileMenu = false
+        // TODO: Navigate to help screen
+    }
+    
+    private func handleSignOut() {
+        logger.info("Sign out tapped")
+        showingProfileMenu = false
+        // TODO: Handle sign out
     }
     
     private func handleViewAllRunsTap() {
         logger.info("View all runs tapped")
-        // TODO: Navigate to runs screen
+        onNavigateToRuns?()
     }
     
     private func handleViewAllGoalsTap() {
@@ -213,28 +310,22 @@ struct HomeView: View {
                 }
                 
                 Spacer()
-                
-                Button("View All") {
-                    handleViewAllChallengesTap()
-                }
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(.orange)
             }
             
             if viewModel.isLoadingChallenges {
                 ProgressView()
                     .frame(maxWidth: .infinity)
                     .padding()
-            } else if viewModel.challenges.isEmpty {
-                EmptyStateView(
-                    title: "No challenges",
-                    message: "Join challenges to compete with others!",
-                    icon: "trophy"
-                )
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
+                        // Create new challenge card (first card)
+                        CreateChallengeCard {
+                            handleCreateChallengeTap()
+                        }
+                        .padding(.horizontal, 6)
+                        
+                        // Existing challenge cards
                         ForEach(viewModel.challenges) { challenge in
                             ChallengeCard(challenge: challenge)
                         }
@@ -245,9 +336,198 @@ struct HomeView: View {
         }
     }
     
-    private func handleViewAllChallengesTap() {
-        logger.info("View all challenges tapped")
-        // TODO: Navigate to challenges screen
+    private func handleCreateChallengeTap() {
+        logger.info("Create challenge tapped")
+        showingCreateChallenge = true
+    }
+}
+
+// MARK: - Profile Dropdown Menu
+private struct ProfileDropdownMenu: View {
+    let userName: String
+    let userLocation: String
+    let onEditProfile: () -> Void
+    let onSettings: () -> Void
+    let onNotifications: () -> Void
+    let onHelp: () -> Void
+    let onSignOut: () -> Void
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // User info header
+            VStack(spacing: 8) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(userName)
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                        
+                        HStack(spacing: 4) {
+                            Image(systemName: "location")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Text(userLocation)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(8)
+                            .background(Circle().fill(.gray.opacity(0.2)))
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+                
+                Divider()
+            }
+            
+            // Menu items
+            VStack(spacing: 0) {
+                ProfileMenuItem(
+                    title: "Edit Profile",
+                    icon: "person.circle",
+                    color: .blue,
+                    action: onEditProfile
+                )
+                
+                ProfileMenuItem(
+                    title: "Settings",
+                    icon: "gear",
+                    color: .gray,
+                    action: onSettings
+                )
+                
+                ProfileMenuItem(
+                    title: "Notifications",
+                    icon: "bell",
+                    color: .orange,
+                    action: onNotifications
+                )
+                
+                ProfileMenuItem(
+                    title: "Help & Support",
+                    icon: "questionmark.circle",
+                    color: .green,
+                    action: onHelp
+                )
+                
+                Divider()
+                    .padding(.horizontal, 16)
+                
+                ProfileMenuItem(
+                    title: "Sign Out",
+                    icon: "rectangle.portrait.and.arrow.right",
+                    color: .red,
+                    action: onSignOut
+                )
+            }
+            .padding(.bottom, 8)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
+        )
+        .frame(width: 260)
+    }
+}
+
+// MARK: - Profile Menu Item
+private struct ProfileMenuItem: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.1))
+                        .frame(width: 32, height: 32)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(color)
+                }
+                
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .background(
+            Rectangle()
+                .fill(.clear)
+                .onTapGesture(perform: action)
+        )
+    }
+}
+
+// MARK: - Create Challenge Card
+private struct CreateChallengeCard: View {
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 12) {
+                // Plus icon
+                ZStack {
+                    Circle()
+                        .fill(Color.orange.opacity(0.1))
+                        .frame(width: 48, height: 48)
+                    
+                    Image(systemName: "plus")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.orange)
+                }
+                
+                VStack(spacing: 4) {
+                    Text("Create")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text("New Challenge")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .frame(width: 140, height: 120)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.orange, style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.orange.opacity(0.05))
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

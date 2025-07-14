@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		00AA0DFB2E25002400E56BE6 /* desc in Resources */ = {isa = PBXBuildFile; fileRef = 00AA0DFA2E25002400E56BE6 /* desc */; };
+		00AA0E6A2E2577CD00E56BE6 /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 00AA0E682E2577CD00E56BE6 /* CLAUDE.md */; };
+		00AA0E6B2E2577CD00E56BE6 /* PROJECT_STRUCTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = 00AA0E692E2577CD00E56BE6 /* PROJECT_STRUCTURE.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +34,8 @@
 		00AA0DDD2E24FE1B00E56BE6 /* WispTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WispTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		00AA0DE72E24FE1B00E56BE6 /* WispUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WispUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		00AA0DFA2E25002400E56BE6 /* desc */ = {isa = PBXFileReference; lastKnownFileType = text; path = desc; sourceTree = "<group>"; };
+		00AA0E682E2577CD00E56BE6 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
+		00AA0E692E2577CD00E56BE6 /* PROJECT_STRUCTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROJECT_STRUCTURE.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -85,6 +89,8 @@
 				00AA0DEA2E24FE1B00E56BE6 /* WispUITests */,
 				00AA0DD12E24FE1800E56BE6 /* Products */,
 				00AA0DFA2E25002400E56BE6 /* desc */,
+				00AA0E682E2577CD00E56BE6 /* CLAUDE.md */,
+				00AA0E692E2577CD00E56BE6 /* PROJECT_STRUCTURE.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -218,6 +224,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				00AA0E6A2E2577CD00E56BE6 /* CLAUDE.md in Resources */,
+				00AA0E6B2E2577CD00E56BE6 /* PROJECT_STRUCTURE.md in Resources */,
 				00AA0DFB2E25002400E56BE6 /* desc in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -13,16 +13,21 @@ struct MainTabView: View {
         case home = "Home"
         case runs = "Runs"
         case record = "Record"
+        case ghosts = "Ghosts"
         case statistics = "Statistics"
-        case settings = "Settings"
+        case goals = "Goals"
+        case groups = "Groups"
+        
         
         var icon: String {
             switch self {
             case .home: return "house"
             case .runs: return "figure.run"
+            case .ghosts: return "sparkles"
             case .record: return "record.circle"
             case .statistics: return "chart.bar"
-            case .settings: return "line.3.horizontal"
+            case .goals: return "target"
+            case .groups: return "person.3"
             }
         }
         
@@ -30,17 +35,21 @@ struct MainTabView: View {
             switch self {
             case .home: return "house.fill"
             case .runs: return "figure.run"
+            case .ghosts: return "sparkles"
             case .record: return "record.circle.fill"
             case .statistics: return "chart.bar.fill"
-            case .settings: return "line.3.horizontal"
+            case .goals: return "target"
+            case .groups: return "person.3.fill"
             }
         }
         
         var displayName: String {
             switch self {
+            case .ghosts: return "Ghosts"
             case .record: return "Run"
             case .statistics: return "Stats"
-            case .settings: return "More"
+            case .goals: return "Goals"
+            case .groups: return "Groups"
             default: return rawValue
             }
         }
@@ -51,21 +60,22 @@ struct MainTabView: View {
         ZStack {
             // Tab Content
             TabView(selection: $selectedTab) {
-                HomeView()
+                HomeView(onNavigateToRuns: {
+                    selectedTab = .runs
+                })
                     .tag(Tab.home)
                 
                 RunsView()
                     .tag(Tab.runs)
                 
+                
                 // Record button handled separately
-                Color.clear
-                    .tag(Tab.record)
                 
-                StatisticsView()
-                    .tag(Tab.statistics)
+                GhostsView()
+                    .tag(Tab.ghosts)
                 
-                SettingsView()
-                    .tag(Tab.settings)
+                GroupsView()
+                    .tag(Tab.groups)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             
@@ -101,11 +111,13 @@ struct MainTabView: View {
             // Record Button (Center)
             recordButton
             
-            // Statistics Tab
-            tabBarItem(for: .statistics)
+            // Ghosts Tab
+            tabBarItem(for: .ghosts)
             
             // Settings Tab
-            tabBarItem(for: .settings)
+//            tabBarItem(for: .goals)
+            
+            tabBarItem(for: .groups)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 12)
@@ -122,7 +134,7 @@ struct MainTabView: View {
         Button(action: {
             selectedTab = tab
         }) {
-            VStack(spacing: 6) {
+            VStack(spacing: 1) {
                 ZStack {
                     // Background for selected tab
                     if selectedTab == tab {
@@ -155,7 +167,7 @@ struct MainTabView: View {
             ZStack {
                 Circle()
                     .fill(.red)
-                    .frame(width: 64, height: 64)
+                    .frame(width: 48, height: 48)
                 
                 Image(systemName: "play.fill")
                     .font(.system(size: 24, weight: .bold))

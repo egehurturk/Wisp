@@ -13,6 +13,44 @@ struct PastRun: Identifiable {
     let averagePace: Double // in seconds per meter
     let averageHeartRate: Int?
     let route: RunRoute
+    private(set) var customTitle: String?
+    let location: String
+    let weather: String?
+    let temperature: String?
+    
+    var generatedTitle: String {
+        return customTitle ?? generateTitle()
+    }
+    
+    mutating func updateTitle(_ newTitle: String) {
+        customTitle = newTitle
+    }
+    
+    private func generateTitle() -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        
+        let timeOfDay = getTimeOfDay()
+        let distanceFormatted = formattedDistance
+        
+        return "\(timeOfDay) \(distanceFormatted) Run"
+    }
+    
+    private func getTimeOfDay() -> String {
+        let hour = Calendar.current.component(.hour, from: date)
+        
+        switch hour {
+        case 5..<12:
+            return "Morning"
+        case 12..<17:
+            return "Afternoon"
+        case 17..<20:
+            return "Evening"
+        default:
+            return "Night"
+        }
+    }
     
     var formattedDistance: String {
         let kilometers = distance / 1000
@@ -45,7 +83,11 @@ struct PastRun: Identifiable {
             duration: 1800,
             averagePace: 6.0,
             averageHeartRate: 165,
-            route: RunRoute.mockData[0]
+            route: RunRoute.mockData[0],
+            customTitle: nil,
+            location: "Golden Gate Park",
+            weather: "Sunny",
+            temperature: "18°C"
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
@@ -53,7 +95,11 @@ struct PastRun: Identifiable {
             duration: 3600,
             averagePace: 6.5,
             averageHeartRate: 158,
-            route: RunRoute.mockData[1]
+            route: RunRoute.mockData[1],
+            customTitle: nil,
+            location: "Central Park",
+            weather: "Partly Cloudy",
+            temperature: "22°C"
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
@@ -61,7 +107,134 @@ struct PastRun: Identifiable {
             duration: 1200,
             averagePace: 5.8,
             averageHeartRate: 170,
-            route: RunRoute.mockData[2]
+            route: RunRoute.mockData[2],
+            customTitle: nil,
+            location: "Hyde Park",
+            weather: "Light Rain",
+            temperature: "15°C"
+        )
+    ]
+    
+    static let extendedMockData: [PastRun] = [
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
+            distance: 5000,
+            duration: 1800,
+            averagePace: 6.0,
+            averageHeartRate: 165,
+            route: RunRoute.mockData[0],
+            customTitle: nil,
+            location: "Golden Gate Park",
+            weather: "Sunny",
+            temperature: "18°C"
+        ),
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
+            distance: 8000,
+            duration: 2700,
+            averagePace: 5.6,
+            averageHeartRate: 172,
+            route: RunRoute.mockData[1],
+            customTitle: "Speed Training Session",
+            location: "Presidio Park",
+            weather: "Cloudy",
+            temperature: "16°C"
+        ),
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
+            distance: 10000,
+            duration: 3600,
+            averagePace: 6.5,
+            averageHeartRate: 158,
+            route: RunRoute.mockData[2],
+            customTitle: nil,
+            location: "Central Park",
+            weather: "Partly Cloudy",
+            temperature: "22°C"
+        ),
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -5, to: Date()) ?? Date(),
+            distance: 12000,
+            duration: 4200,
+            averagePace: 6.8,
+            averageHeartRate: 162,
+            route: RunRoute.mockData[3],
+            customTitle: "Long Weekend Run",
+            location: "Waterfront Trail",
+            weather: "Sunny",
+            temperature: "20°C"
+        ),
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
+            distance: 3000,
+            duration: 1200,
+            averagePace: 5.8,
+            averageHeartRate: 170,
+            route: RunRoute.mockData[4],
+            customTitle: nil,
+            location: "Hyde Park",
+            weather: "Light Rain",
+            temperature: "15°C"
+        ),
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -10, to: Date()) ?? Date(),
+            distance: 6000,
+            duration: 2100,
+            averagePace: 6.2,
+            averageHeartRate: 163,
+            route: RunRoute.mockData[0],
+            customTitle: "Recovery Run",
+            location: "Stanley Park",
+            weather: "Overcast",
+            temperature: "14°C"
+        ),
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date(),
+            distance: 15000,
+            duration: 5400,
+            averagePace: 7.2,
+            averageHeartRate: 155,
+            route: RunRoute.mockData[1],
+            customTitle: "Half Marathon Training",
+            location: "Lakefront Path",
+            weather: "Sunny",
+            temperature: "25°C"
+        ),
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -18, to: Date()) ?? Date(),
+            distance: 4000,
+            duration: 1680,
+            averagePace: 5.9,
+            averageHeartRate: 168,
+            route: RunRoute.mockData[2],
+            customTitle: "Tempo Tuesday",
+            location: "Riverside Drive",
+            weather: "Windy",
+            temperature: "19°C"
+        ),
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -21, to: Date()) ?? Date(),
+            distance: 7500,
+            duration: 2850,
+            averagePace: 6.4,
+            averageHeartRate: 160,
+            route: RunRoute.mockData[3],
+            customTitle: nil,
+            location: "Mountain Trail",
+            weather: "Foggy",
+            temperature: "12°C"
+        ),
+        PastRun(
+            date: Calendar.current.date(byAdding: .day, value: -25, to: Date()) ?? Date(),
+            distance: 5500,
+            duration: 1980,
+            averagePace: 6.1,
+            averageHeartRate: 164,
+            route: RunRoute.mockData[4],
+            customTitle: "Birthday Run 🎂",
+            location: "City Center",
+            weather: "Sunny",
+            temperature: "21°C"
         )
     ]
 }
@@ -251,6 +424,7 @@ struct MapWaypoint: Identifiable, Hashable {
 /// Stub implementation for ghost race results
 struct GhostRaceResult: Identifiable {
     let id = UUID()
+    let runId: UUID
     let ghostName: String
     let didWin: Bool
     let timeDifference: String?
@@ -260,10 +434,26 @@ struct GhostRaceResult: Identifiable {
     }
     
     static let mockData: [GhostRaceResult] = [
-        GhostRaceResult(ghostName: "Personal Best", didWin: true, timeDifference: "2:30"),
-        GhostRaceResult(ghostName: "John's Run", didWin: false, timeDifference: "1:45"),
-        GhostRaceResult(ghostName: "5K Goal", didWin: true, timeDifference: "0:15")
+        GhostRaceResult(runId: UUID(), ghostName: "Personal Best", didWin: true, timeDifference: "2:30"),
+        GhostRaceResult(runId: UUID(), ghostName: "John's Run", didWin: false, timeDifference: "1:45"),
+        GhostRaceResult(runId: UUID(), ghostName: "5K Goal", didWin: true, timeDifference: "0:15")
     ]
+    
+    static var extendedMockData: [GhostRaceResult] {
+        let runs = PastRun.extendedMockData
+        let ghostNames = ["Personal Best", "Sarah Chen", "Alex Rodriguez", "Sub-20 5K Goal", "Marathon Goal Pace", "Yesterday's Run", "Mike Thompson", "Elite Runner", "Personal Best", "Last Week's Tempo"]
+        let winResults = [true, false, true, true, false, true, false, false, true, false]
+        let timeDifferences = ["2:30", "1:45", "0:15", "0:45", "3:20", "1:10", "2:05", "5:30", "0:35", "0:55"]
+        
+        return runs.enumerated().map { index, run in
+            GhostRaceResult(
+                runId: run.id,
+                ghostName: ghostNames[index % ghostNames.count],
+                didWin: winResults[index % winResults.count],
+                timeDifference: timeDifferences[index % timeDifferences.count]
+            )
+        }
+    }
 }
 
 /// Stub implementation for custom goal ghosts
@@ -586,14 +776,7 @@ struct Challenge: Identifiable {
 //}
 
 /// Stub implementations for other views
-struct RunsView: View {
-    var body: some View {
-        NavigationView {
-            Text("Runs View - Coming Soon")
-                .navigationTitle("Runs")
-        }
-    }
-}
+// RunsView implementation is now in Features/Runs/Views/RunsView.swift
 
 struct StatisticsView: View {
     var body: some View {

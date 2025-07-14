@@ -105,7 +105,19 @@ final class HomeViewModel: ObservableObject {
             try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
             
             let runs = PastRun.mockData.prefix(3)
-            let results = GhostRaceResult.mockData.prefix(3)
+            var results = GhostRaceResult.mockData.prefix(3)
+            
+            // Associate ghost results with specific runs
+            for (index, run) in runs.enumerated() {
+                if index < results.count {
+                    results[index] = GhostRaceResult(
+                        runId: run.id,
+                        ghostName: results[index].ghostName,
+                        didWin: results[index].didWin,
+                        timeDifference: results[index].timeDifference
+                    )
+                }
+            }
             
             pastRuns = Array(runs)
             ghostResults = Array(results)
