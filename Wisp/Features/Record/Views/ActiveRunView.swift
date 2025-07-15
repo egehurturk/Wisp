@@ -1,7 +1,7 @@
 import SwiftUI
 import MapKit
 
-/// Active Run screen with Strava/Nike-style design
+/// Active Run screen with Strava-inspired design
 struct ActiveRunView: View {
     
     // MARK: - Properties
@@ -12,26 +12,48 @@ struct ActiveRunView: View {
     @State private var countdownNumber: Int? = nil
     @State private var showingCountdown = false
     @State private var showingRunSummary = false
+    @State private var showingPausedOverlay = false
     private let logger = Logger.ui
     
     // MARK: - Body
     var body: some View {
         ZStack {
-            // New layout based on screenshot
+            // Background gradient
+            LinearGradient(
+                gradient: Gradient(colors: [Color.black.opacity(0.9), Color.black.opacity(0.7)]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            
             VStack(spacing: 0) {
-                // Map section at top (or stats when paused)
-                if viewModel.isRunning {
+                // Full screen map with overlay stats
+                ZStack {
+                    // Map section (full screen)
                     mapContentView
                         .frame(maxHeight: .infinity)
-                } else {
-                    pausedStatsView
-                        .frame(maxHeight: .infinity)
+                        .ignoresSafeArea()
+                    
+                    // Top stats overlay
+                    VStack {
+                        topStatsOverlay
+                            .padding(.top, 60)
+                        
+                        Spacer()
+                    }
                 }
+                .frame(maxHeight: .infinity)
                 
-                // Stats section at bottom
+                // Ghost comparison card
+                ghostComparisonCard
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                
+                // Bottom stats section
                 bottomStatsSection
+                    .padding(.horizontal, 16)
                 
-                // Control buttons below stats
+                // Control buttons
                 controlButtonsSection
                     .padding(.bottom, 40)
             }
@@ -39,6 +61,11 @@ struct ActiveRunView: View {
             // Countdown overlay
             if showingCountdown {
                 countdownOverlay
+            }
+            
+            // Paused overlay
+            if showingPausedOverlay {
+                pausedOverlay
             }
         }
         .fullScreenCover(isPresented: $showingRunSummary) {
@@ -64,209 +91,265 @@ struct ActiveRunView: View {
         }
     }
     
+    // MARK: - Top Stats Overlay
+    private var topStatsOverlay: some View {
+        HStack {
+            // Time
+            VStack(alignment: .leading, spacing: 2) {
+                Text(viewModel.formattedTime)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.black)
+                Text("TIME")
+                    .font(.caption2)
+                    .foregroundColor(.black.opacity(0.7))
+            }
+            
+            Spacer()
+            
+            // Distance
+            VStack(alignment: .center, spacing: 2) {
+                Text(viewModel.formattedDistance)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.black)
+                Text("DISTANCE")
+                    .font(.caption2)
+                    .foregroundColor(.black.opacity(0.7))
+            }
+            
+            Spacer()
+            
+            // Pace
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(viewModel.formattedAveragePace)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.black)
+                Text("PACE")
+                    .font(.caption2)
+                    .foregroundColor(.black.opacity(0.7))
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+        )
+        .padding(.horizontal, 16)
+    }
+    
     // MARK: - Map Content View
     private var mapContentView: some View {
-        ZStack {
-            Map(coordinateRegion: $viewModel.region, 
-                annotationItems: viewModel.routeAnnotations) { annotation in
-                MapAnnotation(coordinate: annotation.coordinate) {
-                    if annotation.isGhost {
-                        // Ghost runner indicator
-                        ZStack {
-                            Circle()
-                                .fill(.purple.opacity(0.3))
-                                .frame(width: 20, height: 20)
-                            
-                            Image(systemName: "figure.run")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.purple)
-                        }
-                    } else {
-                        // User location indicator
-                        ZStack {
-                            Circle()
-                                .fill(.blue)
-                                .frame(width: 16, height: 16)
-                            
-                            Circle()
-                                .stroke(.white, lineWidth: 3)
-                                .frame(width: 16, height: 16)
-                        }
+        Map(coordinateRegion: $viewModel.region, 
+            annotationItems: viewModel.routeAnnotations) { annotation in
+            MapAnnotation(coordinate: annotation.coordinate) {
+                if annotation.isGhost {
+                    // Ghost runner indicator
+                    ZStack {
+                        Circle()
+                            .fill(.purple.opacity(0.3))
+                            .frame(width: 20, height: 20)
+                        
+                        Image(systemName: "figure.run")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.purple)
+                    }
+                } else {
+                    // User location indicator
+                    ZStack {
+                        Circle()
+                            .fill(.blue)
+                            .frame(width: 16, height: 16)
+                        
+                        Circle()
+                            .stroke(.white, lineWidth: 3)
+                            .frame(width: 16, height: 16)
                     }
                 }
             }
-            .overlay(
-                // Route path
-                RouteOverlay(
-                    userPath: viewModel.userPath,
-                    ghostPath: viewModel.ghostPath
-                )
+        }
+        .overlay(
+            // Route path
+            RouteOverlay(
+                userPath: viewModel.userPath,
+                ghostPath: viewModel.ghostPath
             )
-            .disabled(true)
-            
-            // Clean map without overlay
-        }
-    }
-    
-    // MARK: - Paused Stats View
-    private var pausedStatsView: some View {
-        VStack(spacing: 30) {
-            Spacer()
-            
-            Text("Run Paused")
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
-            
-            Text("Tap play to continue your run")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            Spacer()
-        }
-        .background(.ultraThinMaterial)
-    }
-    
-    // MARK: - Bottom Stats Section
-    private var bottomStatsSection: some View {
-        VStack(spacing: 20) {
-            // Primary stats row
-            HStack(spacing: 30) {
-                StatDisplay(
-                    value: viewModel.formattedAveragePace,
-                    label: "AVG PACE",
-                    isLarge: true
-                )
-                
-                StatDisplay(
-                    value: viewModel.formattedDistance,
-                    label: "DISTANCE", 
-                    isLarge: true
-                )
-                
-                StatDisplay(
-                    value: "580",
-                    label: "CALORIES",
-                    unit: "kcal",
-                    isLarge: true
-                )
-            }
-            
-            // Secondary stats row
-            HStack(spacing: 30) {
-                StatDisplay(
-                    value: viewModel.formattedTime,
-                    label: "TIME",
-                    isLarge: true
-                )
-                
-                StatDisplay(
-                    value: "12",
-                    label: "ELEVATION",
-                    unit: "m",
-                    isLarge: true
-                )
-                
-                if let heartRate = viewModel.currentHeartRate {
-                    StatDisplay(
-                        value: "\(heartRate)",
-                        label: "BPM",
-                        unit: "bpm",
-                        isLarge: true
-                    )
-                }
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
         )
-        .foregroundColor(.primary)
+        .scenePadding(.bottom)
+        .disabled(true)
     }
     
     // MARK: - Ghost Comparison Card
     private var ghostComparisonCard: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             // Ghost avatar
             ZStack {
                 Circle()
-                    .fill(.pink)
-                    .frame(width: 40, height: 40)
+                    .fill(.purple.opacity(0.8))
+                    .frame(width: 48, height: 48)
                 
-                Text("APT.")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                Image(systemName: "figure.run")
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundColor(.white)
             }
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(selectedGhost.name)
+                Text("vs \(selectedGhost.name)")
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
                 
                 HStack(spacing: 8) {
-                    Text(viewModel.isAheadOfGhost ? "+1:14" : "-1:14")
-                        .font(.subheadline)
+                    Text(viewModel.isAheadOfGhost ? "+" : "-")
+                        .foregroundColor(viewModel.isAheadOfGhost ? .green : .red)
+                    + Text("1:14")
                         .foregroundColor(viewModel.isAheadOfGhost ? .green : .red)
                     
-                    // Control icons
-                    HStack(spacing: 12) {
-                        Image(systemName: "backward.fill")
-                        Image(systemName: viewModel.isRunning ? "pause.fill" : "play.fill")
-                        Image(systemName: "forward.fill")
-                    }
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
+                    Text("•")
+                        .foregroundColor(.white.opacity(0.5))
+                    
+                    Text(viewModel.isAheadOfGhost ? "AHEAD" : "BEHIND")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white.opacity(0.8))
                 }
+                .font(.subheadline)
+                .fontWeight(.medium)
+            }
+            
+            Spacer()
+            
+            // Split indicator
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("5:32")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                Text("SPLIT")
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.7))
             }
         }
-        .padding()
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(.white.opacity(0.1), lineWidth: 1)
+                )
         )
     }
     
+    // MARK: - Bottom Stats Section
+    private var bottomStatsSection: some View {
+        HStack(spacing: 0) {
+            // AVG Pace
+            VStack(spacing: 4) {
+                Text("AVG Pace")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+                
+                HStack(alignment: .lastTextBaseline, spacing: 2) {
+                    Text(viewModel.formattedAveragePace)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Text("km")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            
+            // Divider
+            Rectangle()
+                .fill(.white.opacity(0.3))
+                .frame(width: 1, height: 50)
+            
+            // Elevation
+            VStack(spacing: 4) {
+                Text("Elevation")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+                
+                HStack(alignment: .lastTextBaseline, spacing: 2) {
+                    Text("12")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Text("m")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            
+            // Divider
+            Rectangle()
+                .fill(.white.opacity(0.3))
+                .frame(width: 1, height: 50)
+            
+            // BPM
+            VStack(spacing: 4) {
+                Text("BPM")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+                
+                HStack(alignment: .lastTextBaseline, spacing: 2) {
+                    Text("120")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Text("bpm")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.vertical, 20)
+    }
+    
+    
     // MARK: - Control Buttons Section
     private var controlButtonsSection: some View {
-        HStack(spacing: 60) {
+        HStack(spacing: 40) {
             // Lap button
-            ControlButton(
+            StravaControlButton(
                 icon: "arrow.clockwise",
-                color: .gray,
+                color: .white.opacity(0.2),
                 size: .medium
             ) {
                 addLap()
             }
             
             // Pause/Resume button
-            ControlButton(
+            StravaControlButton(
                 icon: viewModel.isRunning ? "pause.fill" : "play.fill",
-                color: .orange,
+                color: .red,
                 size: .large
             ) {
                 toggleRunning()
             }
             
             // Finish button
-            ControlButton(
+            StravaControlButton(
                 icon: "stop.fill",
-                color: .gray,
+                color: .white.opacity(0.2),
                 size: .medium
             ) {
                 finishRun()
             }
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-        )
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
     }
     
     // MARK: - Countdown Overlay
@@ -298,6 +381,33 @@ struct ActiveRunView: View {
                 
                 Text("vs \(selectedGhost.name)")
                     .font(.headline)
+                    .foregroundColor(.white.opacity(0.8))
+            }
+        }
+        .transition(.opacity)
+    }
+    
+    // MARK: - Paused Overlay
+    private var pausedOverlay: some View {
+        ZStack {
+            // Semi-transparent background
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                Image(systemName: "pause.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.white)
+                    .scaleEffect(1.2)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.6), value: showingPausedOverlay)
+                
+                Text("PAUSED")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Text("Tap play to resume")
+                    .font(.subheadline)
                     .foregroundColor(.white.opacity(0.8))
             }
         }
@@ -343,12 +453,24 @@ struct ActiveRunView: View {
     private func toggleRunning() {
         if viewModel.isRunning {
             viewModel.pauseRun()
+            showPausedOverlay()
         } else {
             viewModel.resumeRun()
         }
         
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
+    }
+    
+    private func showPausedOverlay() {
+        showingPausedOverlay = true
+        
+        // Hide overlay after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.easeOut(duration: 0.5)) {
+                showingPausedOverlay = false
+            }
+        }
     }
     
     private func addLap() {
@@ -365,46 +487,43 @@ struct ActiveRunView: View {
     }
 }
 
-// MARK: - Stat Display
-private struct StatDisplay: View {
+// MARK: - Strava Stat Card
+private struct StravaStatCard: View {
     let value: String
+    let unit: String
     let label: String
-    let unit: String?
-    let isLarge: Bool
-    
-    init(value: String, label: String, unit: String? = nil, isLarge: Bool = false) {
-        self.value = value
-        self.label = label
-        self.unit = unit
-        self.isLarge = isLarge
-    }
+    let color: Color
     
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 8) {
             HStack(alignment: .lastTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(isLarge ? .largeTitle : .title2)
+                    .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.white)
                 
-                if let unit = unit {
-                    Text(unit)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                }
+                Text(unit)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
             }
             
             Text(label)
                 .font(.caption2)
                 .fontWeight(.medium)
-                .foregroundColor(.secondary)
+                .foregroundColor(.white.opacity(0.6))
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity, minHeight: 80)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+        )
     }
 }
 
-// MARK: - Control Button
-private struct ControlButton: View {
+// MARK: - Strava Control Button
+private struct StravaControlButton: View {
     let icon: String
     let color: Color
     let size: ButtonSize
@@ -437,8 +556,11 @@ private struct ControlButton: View {
                 .background(
                     Circle()
                         .fill(color)
+                        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
                 )
         }
+        .scaleEffect(0.95)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: color)
     }
 }
 

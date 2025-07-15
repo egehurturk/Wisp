@@ -44,6 +44,17 @@ Future ideas:
 
 
 
+* Hey claude, please re-design the ActiveRun view. Make it slick, strava-like, and elegant, showing top-statistics in real time.
+
+* Location Services:
+    * we need the following services for active runs:
+        * location (gps) tracking: creating a run path as you progress, like strava
+        * location run statistics: average pace, pace per the recent split, distance,
+        * weather services: get weather-data when you start the run to log
+        * health services: get calories, heart rate, cadence, etc to show while running
+        * voice coaching: audio effects that coach you during the run, giving alerts and status about the ghost, etc.
+        *
+
 * The runs you won and the runs you lost their cards should be different
 * Runs page the top statistics (total runs etc) should not be stick
 * When clicked on the user profile button in home screen, it should display a collapsable small navbar will display the name, location of the user, a link to change profile, a link to settings, a link to sign out, a link to other things you find suitable.
