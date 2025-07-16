@@ -38,9 +38,22 @@
 		00AA0E692E2577CD00E56BE6 /* PROJECT_STRUCTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROJECT_STRUCTURE.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0044FE6B2E281CDF004EF22D /* Exceptions for "Wisp" folder in "Wisp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 00AA0DCF2E24FE1800E56BE6 /* Wisp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		00AA0DD22E24FE1800E56BE6 /* Wisp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0044FE6B2E281CDF004EF22D /* Exceptions for "Wisp" folder in "Wisp" target */,
+			);
 			path = Wisp;
 			sourceTree = "<group>";
 		};
@@ -413,6 +426,10 @@
 				DEVELOPMENT_TEAM = HKYHFUB552;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Wisp/Info.plist;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wisp needs location access to track your running route and provide accurate distance and pace measurements during your workout.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "Wisp needs location access to track your running route and provide accurate distance and pace measurements during your workout.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wisp needs location access to track your running route and provide accurate distance and pace measurements during your workout.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -441,6 +458,10 @@
 				DEVELOPMENT_TEAM = HKYHFUB552;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Wisp/Info.plist;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wisp needs location access to track your running route and provide accurate distance and pace measurements during your workout.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "Wisp needs location access to track your running route and provide accurate distance and pace measurements during your workout.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wisp needs location access to track your running route and provide accurate distance and pace measurements during your workout.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

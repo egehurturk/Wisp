@@ -24,16 +24,19 @@ final class ActiveRunViewModel: ObservableObject {
     @Published var ghostPath: [CLLocationCoordinate2D] = []
     @Published var isAheadOfGhost: Bool = false
     @Published var ghostTimeDifference: String? = nil
+    @Published var locationPermissionDenied: Bool = false
+    @Published var locationError: LocationError?
     
     // MARK: - Private Properties
     private var selectedGhost: Ghost?
     private var startTime: Date?
     private var timer: Timer?
     private var lastLocationUpdate: Date = Date()
-    private var currentLocation: CLLocationCoordinate2D?
     private var ghostCurrentPosition: CLLocationCoordinate2D?
     private var laps: [LapData] = []
     private let logger = Logger.general
+    private let gpsManager = GPSManager()
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
     var formattedTime: String {
@@ -67,6 +70,100 @@ final class ActiveRunViewModel: ObservableObject {
         return String(format: "%d:%02d", minutes, seconds)
     }
     
+    // MARK: - Computed Properties for GPS
+    var routePolyline: MKPolyline? {
+        gpsManager.mapPolyline
+    }
+    
+    // MARK: - Initialization
+    init() {
+        setupGPSManager()
+        requestLocationPermission()
+    }
+    
+    // MARK: - GPS Setup
+    private func setupGPSManager() {
+        // Bind GPS manager location updates to our user path
+        gpsManager.$routeCoordinates
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.userPath, on: self)
+            .store(in: &cancellables)
+        
+        // Bind GPS manager current location to update map region
+        gpsManager.$currentLocation
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0 }
+            .sink { [weak self] location in
+                self?.updateMapRegion(for: location)
+            }
+            .store(in: &cancellables)
+        
+        // Bind GPS manager distance to our distance property
+        gpsManager.$routeLocations
+            .receive(on: DispatchQueue.main)
+            .map { locations in
+                guard locations.count > 1 else { return 0.0 }
+                var totalDistance: CLLocationDistance = 0
+                for i in 1..<locations.count {
+                    totalDistance += locations[i-1].distance(from: locations[i])
+                }
+                return totalDistance
+            }
+            .assign(to: \.distance, on: self)
+            .store(in: &cancellables)
+        
+        // Bind GPS manager tracking status
+        gpsManager.$isTracking
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isTracking in
+                if !isTracking && self?.isRunning == true {
+                    // GPS stopped unexpectedly while running
+                    self?.logger.warning("GPS tracking stopped unexpectedly")
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Bind GPS manager errors
+        gpsManager.$trackingError
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] error in
+                self?.locationError = error
+                if let error = error {
+                    self?.logger.error("GPS tracking error: \(error.localizedDescription)")
+                    switch error {
+                    case .permissionDenied:
+                        self?.locationPermissionDenied = true
+                    case .locationServicesDisabled:
+                        self?.pauseRun()
+                    default:
+                        break
+                    }
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Bind GPS manager authorization status
+        gpsManager.$authorizationStatus
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                self?.locationPermissionDenied = (status == .denied || status == .restricted)
+                self?.logger.info("Location authorization status: \(status.description)")
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func requestLocationPermission() {
+        gpsManager.requestLocationPermission()
+    }
+    
+    private func updateMapRegion(for location: CLLocation) {
+        let newRegion = MKCoordinateRegion(
+            center: location.coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
+        )
+        region = newRegion
+    }
+    
     // MARK: - Public Methods
     func startRun(with ghost: Ghost) {
         logger.info("Starting run with ghost: \(ghost.name)")
@@ -74,10 +171,13 @@ final class ActiveRunViewModel: ObservableObject {
         startTime = Date()
         isRunning = true
         
-        // Initialize mock data
-        initializeMockRun()
+        // Start GPS tracking
+        gpsManager.startTracking()
         
-        // Start timer
+        // Initialize ghost data
+        initializeGhostData()
+        
+        // Start timer for run metrics
         startTimer()
         
         // Start simulating ghost movement
@@ -89,18 +189,28 @@ final class ActiveRunViewModel: ObservableObject {
         isRunning = false
         timer?.invalidate()
         timer = nil
+        
+        // Pause GPS tracking
+        gpsManager.pauseTracking()
     }
     
     func resumeRun() {
         logger.info("Run resumed")
         isRunning = true
         startTimer()
+        
+        // Resume GPS tracking
+        gpsManager.resumeTracking()
     }
     
     func endRun() {
         logger.info("Run ended - Distance: \(formattedDistance)km, Time: \(formattedTime)")
         pauseRun()
-        // TODO: Save run data
+        
+        // Stop GPS tracking
+        gpsManager.stopTracking()
+        
+        // TODO: Save run data with actual GPS route
     }
     
     func addLap() {
@@ -126,31 +236,23 @@ final class ActiveRunViewModel: ObservableObject {
         )
     }
     
+    func stopGPSTracking() {
+        logger.info("Stopping GPS tracking from ActiveRunViewModel")
+        gpsManager.stopTracking()
+    }
+    
     // MARK: - Private Methods
-    private func initializeMockRun() {
-        // Set initial location (Golden Gate Park)
-        let startCoordinate = CLLocationCoordinate2D(latitude: 37.7694, longitude: -122.4862)
-        currentLocation = startCoordinate
-        
-        // Initialize user path
-        userPath = [startCoordinate]
-        
+    private func initializeGhostData() {
         // Initialize ghost path from selected ghost route
         if let ghostRoute = selectedGhost?.route {
             ghostPath = ghostRoute.waypoints.map { $0.coordinate }
             ghostCurrentPosition = ghostRoute.waypoints.first?.coordinate
         }
         
-        // Update region to show starting location
-        region = MKCoordinateRegion(
-            center: startCoordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
-        )
-        
         // Initialize route annotations
         updateRouteAnnotations()
         
-        // Start with mock sensor data
+        // Start with mock sensor data (can be replaced with real sensor integration)
         currentHeartRate = 120
         currentCadence = 180
     }
@@ -168,14 +270,10 @@ final class ActiveRunViewModel: ObservableObject {
         
         elapsedTime += 1.0
         
-        // Simulate distance progression (assume 5:00/km pace for simplicity)
-        let simulatedSpeed = 3.33 // m/s (5:00/km pace)
-        distance += simulatedSpeed
+        // Distance is automatically updated from GPS manager binding
+        // No need to simulate distance progression
         
-        // Update current location (simulate movement)
-        simulateLocationUpdate()
-        
-        // Calculate paces
+        // Calculate paces based on actual GPS data
         updatePaceMetrics()
         
         // Update sensor data
@@ -186,30 +284,6 @@ final class ActiveRunViewModel: ObservableObject {
         
         // Update map annotations
         updateRouteAnnotations()
-    }
-    
-    private func simulateLocationUpdate() {
-        guard let currentLoc = currentLocation else { return }
-        
-        // Simulate movement along a rough path (simplified)
-        let bearing = Double.random(in: 0...360) * .pi / 180
-        let distanceMoved = 3.33 // meters per second
-        let deltaLat = distanceMoved * cos(bearing) / 111000 // rough conversion to degrees
-        let deltaLon = distanceMoved * sin(bearing) / (111000 * cos(currentLoc.latitude * .pi / 180))
-        
-        let newLocation = CLLocationCoordinate2D(
-            latitude: currentLoc.latitude + deltaLat,
-            longitude: currentLoc.longitude + deltaLon
-        )
-        
-        currentLocation = newLocation
-        userPath.append(newLocation)
-        
-        // Update map region to follow user
-        region = MKCoordinateRegion(
-            center: newLocation,
-            span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
-        )
     }
     
     private func updatePaceMetrics() {
@@ -287,9 +361,9 @@ final class ActiveRunViewModel: ObservableObject {
     private func updateRouteAnnotations() {
         var annotations: [RouteAnnotation] = []
         
-        // Add user position
-        if let userPos = currentLocation {
-            annotations.append(RouteAnnotation(coordinate: userPos, isGhost: false))
+        // Add user position from GPS manager
+        if let userPos = gpsManager.currentLocation {
+            annotations.append(RouteAnnotation(coordinate: userPos.coordinate, isGhost: false))
         }
         
         // Add ghost position

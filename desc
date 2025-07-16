@@ -57,4 +57,12 @@ Future ideas:
 
 * The runs you won and the runs you lost their cards should be different
 * Runs page the top statistics (total runs etc) should not be stick
-* When clicked on the user profile button in home screen, it should display a collapsable small navbar will display the name, location of the user, a link to change profile, a link to settings, a link to sign out, a link to other things you find suitable.
+* User profile navbar dropdown make it open from the profile pic not the top
+* Select run type must be scrollable
+*
+
+
+
+* track GPS and update routes
+* location manager service
+

@@ -88,6 +88,10 @@ struct SelectRunTypeView: View {
             logger.info("SelectRunTypeView appeared")
             startAnimations()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToHome)) { _ in
+            logger.info("SelectRunTypeView received navigation to home notification")
+            dismiss()
+        }
     }
     
     // MARK: - Drag Handle

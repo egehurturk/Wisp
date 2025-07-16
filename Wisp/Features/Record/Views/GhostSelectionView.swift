@@ -77,6 +77,10 @@ struct GhostSelectionView: View {
         .onAppear {
             logger.info("GhostSelectionView appeared")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToHome)) { _ in
+            logger.info("GhostSelectionView received navigation to home notification")
+            dismiss()
+        }
     }
     
     // MARK: - Search and Filter Section

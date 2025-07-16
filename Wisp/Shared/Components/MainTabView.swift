@@ -97,6 +97,15 @@ struct MainTabView: View {
         .onAppear {
             logger.info("MainTabView appeared")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToHome)) { _ in
+            logger.info("Received navigation to home notification")
+            
+            // Dismiss the SelectRunTypeView modal
+            showingSelectRunType = false
+            
+            // Navigate to home tab
+            selectedTab = .home
+        }
     }
     
     // MARK: - Custom Tab Bar

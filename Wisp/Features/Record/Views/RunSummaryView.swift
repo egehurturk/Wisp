@@ -1,16 +1,18 @@
 import SwiftUI
 import MapKit
 
-/// Run Summary screen showing completed run results
+/// Run Summary screen showing completed run results with modern design
 struct RunSummaryView: View {
     
     // MARK: - Properties
     let selectedGhost: Ghost
     let runData: RunSummaryData
+    let viewModel: ActiveRunViewModel
     let onSave: () -> Void
     let onDiscard: () -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var showingConfetti = false
+    @State private var runTitle = "Evening Run"
+    @State private var showingDiscardAlert = false
     private let logger = Logger.ui
     
     // MARK: - Body
@@ -18,346 +20,361 @@ struct RunSummaryView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Header
-                    headerSection
-                    
-                    // Main stats
+                    // Main stats section
                     mainStatsSection
                     
-                    // Ghost comparison
-                    ghostComparisonSection
+                    // Run title input
+                    runTitleInput
                     
-                    // Route map
-                    routeMapSection
+                    // Map section
+                    mapSection
                     
                     // Additional stats
                     additionalStatsSection
                     
+                    // Ghost comparison (if applicable)
+                    if runData.time > 0 {
+                        ghostComparisonSection
+                    }
+                    
                     // Action buttons
-                    actionButtonsSection
+                    actionButtons
                         .padding(.bottom, 40)
                 }
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
-            .background(Color(.systemGroupedBackground))
-            .ignoresSafeArea()
-            .navigationBarHidden(true)
+            .navigationTitle("Run Summary")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        handleRunSave()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+        .navigationBarHidden(true)
+        .alert("Discard Run", isPresented: $showingDiscardAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Discard", role: .destructive) {
+                logger.info("Run discarded")
+                viewModel.stopGPSTracking()
+                onDiscard()
+            }
+        } message: {
+            Text("Are you sure you want to discard this run? This action cannot be undone.")
         }
         .onAppear {
             logger.info("RunSummaryView appeared")
-            
-            // Check if user won and show confetti
-            if runData.time < selectedGhost.time {
-                showingConfetti = true
-                
-                // Hide confetti after 3 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                    showingConfetti = false
-                }
-            }
         }
-        .overlay(
-            // Confetti overlay
-            Group {
-                if showingConfetti {
-                    ConfettiView()
-                        .allowsHitTesting(false)
-                        .ignoresSafeArea()
-                }
-            }
-        )
     }
     
-    // MARK: - Header Section
-    private var headerSection: some View {
-        VStack(spacing: 16) {
-            Text("Run Complete!")
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
-            
-            Text("Great job! Here's your run summary")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
+    // MARK: - Private Methods
+    private func handleRunSave() {
+        logger.info("Save run tapped from toolbar")
+        viewModel.stopGPSTracking()
+        onSave()
     }
     
     // MARK: - Main Stats Section
     private var mainStatsSection: some View {
-        VStack(spacing: 20) {
-            // Primary stats
-            HStack(spacing: 30) {
-                StatSummaryCard(
-                    value: runData.formattedTime,
-                    label: "Total Time",
-                    icon: "clock"
-                )
-                
-                StatSummaryCard(
+        VStack(spacing: 16) {
+            // Primary stats row
+            HStack(spacing: 0) {
+                StatItem(
+                    title: "Distance",
                     value: runData.formattedDistance,
-                    label: "Distance",
-                    unit: "km",
-                    icon: "location"
+                    unit: "km"
                 )
                 
-                StatSummaryCard(
+                Divider()
+                    .frame(height: 40)
+                
+                StatItem(
+                    title: "Time",
+                    value: formatMainTime(runData.time),
+                    unit: ""
+                )
+                
+                Divider()
+                    .frame(height: 40)
+                
+                StatItem(
+                    title: "Pace",
                     value: runData.formattedAveragePace,
-                    label: "Avg Pace",
-                    unit: "/km",
-                    icon: "speedometer"
+                    unit: "/km"
                 )
             }
-            
-            // Secondary stats
-            HStack(spacing: 30) {
-                if let heartRate = runData.currentHeartRate {
-                    StatSummaryCard(
-                        value: "\(heartRate)",
-                        label: "Avg Heart Rate",
-                        unit: "bpm",
-                        icon: "heart.fill"
-                    )
-                }
-                
-                StatSummaryCard(
-                    value: "580",
-                    label: "Calories",
-                    unit: "kcal",
-                    icon: "flame.fill"
-                )
-                
-                if let cadence = runData.currentCadence {
-                    StatSummaryCard(
-                        value: "\(cadence)",
-                        label: "Cadence",
-                        unit: "spm",
-                        icon: "figure.run"
-                    )
-                }
-            }
+            .padding(.vertical, 20)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray6))
+            )
         }
     }
     
-    // MARK: - Ghost Comparison Section
-    private var ghostComparisonSection: some View {
-        VStack(spacing: 16) {
-            Text("Ghost Race Results")
+    private func formatMainTime(_ time: TimeInterval) -> String {
+        let hours = Int(time) / 3600
+        let minutes = Int(time) % 3600 / 60
+        let seconds = Int(time) % 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            return String(format: "%d:%02d", minutes, seconds)
+        }
+    }
+    
+    // MARK: - Run Title Input
+    private var runTitleInput: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Activity Name")
                 .font(.headline)
-                .fontWeight(.semibold)
                 .foregroundColor(.primary)
             
-            HStack(spacing: 20) {
-                // User result
-                VStack(spacing: 8) {
-                    Text("You")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    
-                    Text(runData.formattedTime)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.green)
-                }
-                
-                Text("vs")
-                    .font(.title3)
-                    .foregroundColor(.secondary)
-                
-                // Ghost result
-                VStack(spacing: 8) {
-                    Text(selectedGhost.name)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    
-                    Text(selectedGhost.formattedTime)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.purple)
-                }
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-            )
-            
-            // Result indicator
-            HStack(spacing: 8) {
-                Image(systemName: runData.time < selectedGhost.time ? "trophy.fill" : "flag.fill")
-                    .foregroundColor(runData.time < selectedGhost.time ? .yellow : .orange)
-                
-                Text(runData.time < selectedGhost.time ? "You won!" : "Good effort!")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-            }
+            TextField("Evening Run", text: $runTitle)
+                .font(.body)
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(.systemGray6))
+                )
         }
     }
     
-    // MARK: - Route Map Section
-    private var routeMapSection: some View {
+    // MARK: - Map Section
+    private var mapSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Route")
                 .font(.headline)
-                .fontWeight(.semibold)
                 .foregroundColor(.primary)
             
-            if !runData.route.isEmpty {
-                Map(coordinateRegion: .constant(MKCoordinateRegion(
-                    center: runData.route.first ?? CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                )))
-                .frame(height: 200)
-                .cornerRadius(16)
-                .overlay(
-                    RoutePathOverlay(coordinates: runData.route)
-                )
+            ZStack {
+                if !runData.route.isEmpty {
+                    Map(coordinateRegion: .constant(MKCoordinateRegion(
+                        center: runData.route.first ?? CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                    )))
+                    .frame(height: 200)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoutePathOverlay(coordinates: runData.route)
+                    )
+                } else {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemGray6))
+                        .frame(height: 200)
+                        .overlay(
+                            VStack(spacing: 8) {
+                                Image(systemName: "map")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(.secondary)
+                                
+                                Text("No route data")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        )
+                }
             }
         }
     }
     
     // MARK: - Additional Stats Section
     private var additionalStatsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Laps")
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Details")
                 .font(.headline)
-                .fontWeight(.semibold)
                 .foregroundColor(.primary)
             
-            if runData.laps.isEmpty {
-                Text("No laps recorded")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(runData.laps, id: \.number) { lap in
-                        HStack {
-                            Text("Lap \(lap.number)")
-                                .font(.subheadline)
-                                .foregroundColor(.primary)
-                            
-                            Spacer()
-                            
-                            Text(lap.formattedTime)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal)
-                    }
+            VStack(spacing: 1) {
+                if let heartRate = runData.currentHeartRate {
+                    StatRow(title: "Heart Rate", value: "\(heartRate)", unit: "bpm")
                 }
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white)
-                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                )
+                
+                if let cadence = runData.currentCadence {
+                    StatRow(title: "Cadence", value: "\(cadence)", unit: "spm")
+                }
+                
+                if !runData.laps.isEmpty {
+                    StatRow(title: "Laps", value: "\(runData.laps.count)", unit: "")
+                }
             }
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(.systemGray6))
+            )
         }
     }
     
-    // MARK: - Action Buttons Section
-    private var actionButtonsSection: some View {
-        VStack(spacing: 16) {
+    // MARK: - Ghost Comparison Section
+    private var ghostComparisonSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("vs \(selectedGhost.name)")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            HStack(spacing: 16) {
+                // Your time
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("You")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Text(runData.formattedTime)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
+                
+                Spacer()
+                
+                // Comparison result
+                VStack(spacing: 4) {
+                    if runData.time < selectedGhost.time {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.green)
+                        
+                        Text("Won")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    } else {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.orange)
+                        
+                        Text("Lost")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
+                
+                Spacer()
+                
+                // Ghost time
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(selectedGhost.name)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Text(selectedGhost.formattedTime)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(.systemGray6))
+            )
+        }
+    }
+    
+    // MARK: - Action Buttons
+    private var actionButtons: some View {
+        VStack(spacing: 12) {
             // Save button
             Button(action: {
                 logger.info("Save run tapped")
-                dismiss()
+                viewModel.stopGPSTracking()
                 onSave()
             }) {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                    
-                    Text("Save Run")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                }
-                .foregroundColor(.primary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.green)
-                )
+                Text("Save Activity")
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.blue)
+                    )
             }
             
             // Discard button
             Button(action: {
-                logger.info("Discard run tapped")
-                dismiss()
-                onDiscard()
+                showingDiscardAlert = true
             }) {
-                HStack {
-                    Image(systemName: "trash.circle.fill")
-                        .font(.title3)
-                    
-                    Text("Discard Run")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                }
-                .foregroundColor(.primary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.red)
-                )
+                Text("Discard Activity")
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(.systemGray6))
+                    )
             }
         }
     }
 }
 
-// MARK: - Stat Summary Card
-private struct StatSummaryCard: View {
+// MARK: - Supporting Views
+
+// MARK: - Stat Item
+private struct StatItem: View {
+    let title: String
     let value: String
-    let label: String
-    let unit: String?
-    let icon: String
-    
-    init(value: String, label: String, unit: String? = nil, icon: String) {
-        self.value = value
-        self.label = label
-        self.unit = unit
-        self.icon = icon
-    }
+    let unit: String
     
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(.blue)
+        VStack(spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
             
-            VStack(spacing: 4) {
-                HStack(alignment: .lastTextBaseline, spacing: 2) {
-                    Text(value)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
-                    if let unit = unit {
-                        Text(unit)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
                 
-                Text(label)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-        )
+    }
+}
+
+// MARK: - Stat Row
+private struct StatRow: View {
+    let title: String
+    let value: String
+    let unit: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.body)
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(.systemBackground))
     }
 }
 
@@ -378,7 +395,7 @@ private struct RoutePathOverlay: View {
                     path.addLine(to: point)
                 }
             }
-            .stroke(.red, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+            .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
         }
     }
     
@@ -390,108 +407,6 @@ private struct RoutePathOverlay: View {
     }
 }
 
-// MARK: - Confetti View
-private struct ConfettiView: View {
-    @State private var confettiPieces: [ConfettiPiece] = []
-    
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                ForEach(confettiPieces, id: \.id) { piece in
-                    // Different shapes for more variety
-                    Group {
-                        switch piece.shape {
-                        case .circle:
-                            Circle()
-                                .fill(piece.color)
-                                .frame(width: piece.size, height: piece.size)
-                        case .square:
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(piece.color)
-                                .frame(width: piece.size, height: piece.size)
-                        case .triangle:
-                            Image(systemName: "triangle.fill")
-                                .foregroundColor(piece.color)
-                                .font(.system(size: piece.size))
-                        }
-                    }
-                    .position(piece.position)
-                    .rotationEffect(.degrees(piece.rotation))
-                    .scaleEffect(piece.scale)
-                    .opacity(piece.opacity)
-                }
-            }
-        }
-        .onAppear {
-            startConfetti(in: UIScreen.main.bounds.size)
-        }
-    }
-    
-    private func startConfetti(in size: CGSize) {
-        let colors: [Color] = [.red, .blue, .green, .yellow, .orange, .purple, .pink, .cyan, .mint]
-        let shapes: [ConfettiShape] = [.circle, .square, .triangle]
-        
-        // Create confetti bursting from left and right sides
-        for side in ["left", "right"] {
-            for _ in 0..<30 {
-                let startX = side == "left" ? -20.0 : size.width + 20
-                let startY = Double.random(in: size.height * 0.3...size.height * 0.7)
-                
-                let piece = ConfettiPiece(
-                    id: UUID(),
-                    position: CGPoint(x: startX, y: startY),
-                    color: colors.randomElement() ?? .blue,
-                    rotation: Double.random(in: 0...360),
-                    opacity: 1.0,
-                    scale: 1.0,
-                    size: Double.random(in: 6...12),
-                    shape: shapes.randomElement() ?? .circle,
-                    velocityX: side == "left" ? Double.random(in: 200...400) : Double.random(in: -400...(-200)),
-                    velocityY: Double.random(in: -300...(-100))
-                )
-                confettiPieces.append(piece)
-            }
-        }
-        
-        // Animate confetti with physics-like motion
-        for (index, piece) in confettiPieces.enumerated() {
-            let delay = Double.random(in: 0...0.5)
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                // Calculate end position with gravity and air resistance
-                let timeOfFlight = 3.0
-                let gravity = 500.0 // pixels per second squared
-                
-                let endX = piece.position.x + piece.velocityX * timeOfFlight * 0.7 // air resistance
-                let endY = piece.position.y + piece.velocityY * timeOfFlight + 0.5 * gravity * timeOfFlight * timeOfFlight
-                
-                withAnimation(.easeOut(duration: timeOfFlight)) {
-                    confettiPieces[index].position = CGPoint(x: endX, y: endY)
-                    confettiPieces[index].rotation += Double.random(in: 360...1080)
-                    confettiPieces[index].scale = 0.3
-                    confettiPieces[index].opacity = 0
-                }
-            }
-        }
-    }
-}
-
-private enum ConfettiShape {
-    case circle, square, triangle
-}
-
-private struct ConfettiPiece {
-    let id: UUID
-    var position: CGPoint
-    let color: Color
-    var rotation: Double
-    var opacity: Double
-    var scale: Double
-    let size: Double
-    let shape: ConfettiShape
-    let velocityX: Double
-    let velocityY: Double
-}
 
 // MARK: - Preview
 #Preview {
@@ -499,13 +414,14 @@ private struct ConfettiPiece {
         selectedGhost: Ghost.mockData[0],
         runData: RunSummaryData(
             distance: 5000,
-            time: 1500,
+            time: 1400,
             averagePace: 300,
             currentHeartRate: 165,
             currentCadence: 180,
             route: [],
             laps: []
         ),
+        viewModel: ActiveRunViewModel(),
         onSave: {},
         onDiscard: {}
     )

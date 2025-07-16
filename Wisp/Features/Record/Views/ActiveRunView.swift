@@ -71,13 +71,14 @@ struct ActiveRunView: View {
         .fullScreenCover(isPresented: $showingRunSummary) {
             RunSummaryView(
                 selectedGhost: selectedGhost,
-                runData: viewModel.getRunSummaryData()
+                runData: viewModel.getRunSummaryData(),
+                viewModel: viewModel
             ) {
                 // On save
-                dismiss()
+                handleRunSave()
             } onDiscard: {
                 // On discard
-                dismiss()
+                handleRunDiscard()
             }
         }
         .navigationBarHidden(true)
@@ -87,7 +88,14 @@ struct ActiveRunView: View {
             startCountdown()
         }
         .onDisappear {
-            viewModel.pauseRun()
+            // Don't pause automatically - let GPS continue in background
+            logger.info("ActiveRunView disappeared - GPS continues in background")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            logger.info("App entered background during run - GPS tracking continues")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            logger.info("App entering foreground - resuming UI updates")
         }
     }
     
@@ -142,43 +150,28 @@ struct ActiveRunView: View {
     
     // MARK: - Map Content View
     private var mapContentView: some View {
-        Map(coordinateRegion: $viewModel.region, 
-            annotationItems: viewModel.routeAnnotations) { annotation in
-            MapAnnotation(coordinate: annotation.coordinate) {
-                if annotation.isGhost {
-                    // Ghost runner indicator
-                    ZStack {
-                        Circle()
-                            .fill(.purple.opacity(0.3))
-                            .frame(width: 20, height: 20)
-                        
-                        Image(systemName: "figure.run")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.purple)
-                    }
-                } else {
-                    // User location indicator
-                    ZStack {
-                        Circle()
-                            .fill(.blue)
-                            .frame(width: 16, height: 16)
-                        
-                        Circle()
-                            .stroke(.white, lineWidth: 3)
-                            .frame(width: 16, height: 16)
-                    }
-                }
-            }
-        }
-        .overlay(
-            // Route path
-            RouteOverlay(
-                userPath: viewModel.userPath,
-                ghostPath: viewModel.ghostPath
-            )
+        GPSMapView(
+            region: $viewModel.region,
+            userPath: viewModel.userPath,
+            ghostPath: viewModel.ghostPath,
+            annotations: viewModel.routeAnnotations
         )
         .scenePadding(.bottom)
-        .disabled(true)
+        .alert("Location Permission Required", isPresented: $viewModel.locationPermissionDenied) {
+            Button("Settings") {
+                openAppSettings()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Wisp needs location access to track your run. Please enable location services in Settings.")
+        }
+        .alert("Location Error", isPresented: .constant(viewModel.locationError != nil)) {
+            Button("OK") {
+                viewModel.locationError = nil
+            }
+        } message: {
+            Text(viewModel.locationError?.localizedDescription ?? "Unknown location error")
+        }
     }
     
     // MARK: - Ghost Comparison Card
@@ -484,6 +477,38 @@ struct ActiveRunView: View {
         logger.info("Finish run tapped")
         viewModel.endRun()
         showingRunSummary = true
+    }
+    
+    private func openAppSettings() {
+        guard let settingsUrl = URL(string: UIApplication.openSettingsURLString) else { return }
+        
+        if UIApplication.shared.canOpenURL(settingsUrl) {
+            UIApplication.shared.open(settingsUrl)
+        }
+    }
+    
+    private func handleRunSave() {
+        logger.info("Run saved - navigating to home")
+        viewModel.stopGPSTracking()
+        
+        // Navigate back to home and dismiss all modals
+        navigateToHome()
+    }
+    
+    private func handleRunDiscard() {
+        logger.info("Run discarded - navigating to home")
+        viewModel.stopGPSTracking()
+        
+        // Navigate back to home and dismiss all modals
+        navigateToHome()
+    }
+    
+    private func navigateToHome() {
+        // This will dismiss the current view and all modals
+        dismiss()
+        
+        // Post notification to navigate to home tab
+        NotificationCenter.default.post(name: .navigateToHome, object: nil)
     }
 }
 

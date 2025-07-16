@@ -14,6 +14,12 @@ open -a Simulator
 xcodebuild -project Wisp.xcodeproj -scheme Wisp -destination 'platform=iOS Simulator,name=iPhone 16 Pro' run
 ```
 
+### Location Services Setup
+The app requires location permissions for GPS tracking. The project is configured with:
+- Location usage descriptions in Info.plist (automatically configured)
+- Background location updates capability (for continuous tracking during runs)
+- GPSManager handles all location permissions and tracking automatically
+
 ### Testing
 ```bash
 # Run all tests
@@ -105,8 +111,8 @@ Each feature follows consistent MVVM pattern:
 -  Active run screen with real-time ghost comparison
 -  Ghost system with multiple types (PR, Strava, custom goals)
 -  Enterprise logging system
-- =§ Core services (networking, persistence, location) - stub implementations
-- =§ Complete feature modules (Settings, Statistics, Groups) - basic stubs
+- =ï¿½ Core services (networking, persistence, location) - stub implementations
+- =ï¿½ Complete feature modules (Settings, Statistics, Groups) - basic stubs
 
 ### Integration Points
 - **MapKit**: Used for route visualization and location tracking
