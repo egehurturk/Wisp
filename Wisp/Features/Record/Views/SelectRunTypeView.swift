@@ -27,25 +27,28 @@ struct SelectRunTypeView: View {
                 // Header
                 headerSection
                 
-                // Run type cards
-                VStack(spacing: 24) {
-                    // Ghost Run Card
-                    GhostRunCard(isSelected: selectedType == .ghost) {
-                        handleGhostRunTap()
+                ScrollView {
+                    // Run type cards
+                    VStack(spacing: 24) {
+                        // Ghost Run Card
+                        GhostRunCard(isSelected: selectedType == .ghost) {
+                            handleGhostRunTap()
+                        }
+                        .opacity(showGhostCard ? 1 : 0)
+                        .offset(y: showGhostCard ? 0 : 30)
+                        .animation(.spring(response: 0.8, dampingFraction: 0.8).delay(0.2), value: showGhostCard)
+                        .padding(.top, 20)
+                        
+                        // Group Run Card
+                        GroupRunCard(isSelected: selectedType == .group) {
+                            handleGroupRunTap()
+                        }
+                        .opacity(showGroupCard ? 1 : 0)
+                        .offset(y: showGroupCard ? 0 : 30)
+                        .animation(.spring(response: 0.8, dampingFraction: 0.8).delay(0.4), value: showGroupCard)
                     }
-                    .opacity(showGhostCard ? 1 : 0)
-                    .offset(y: showGhostCard ? 0 : 30)
-                    .animation(.spring(response: 0.8, dampingFraction: 0.8).delay(0.2), value: showGhostCard)
-                    
-                    // Group Run Card
-                    GroupRunCard(isSelected: selectedType == .group) {
-                        handleGroupRunTap()
-                    }
-                    .opacity(showGroupCard ? 1 : 0)
-                    .offset(y: showGroupCard ? 0 : 30)
-                    .animation(.spring(response: 0.8, dampingFraction: 0.8).delay(0.4), value: showGroupCard)
+                    .padding(.horizontal, 24)
                 }
-                .padding(.horizontal, 24)
                 
                 Spacer(minLength: 40)
                 
