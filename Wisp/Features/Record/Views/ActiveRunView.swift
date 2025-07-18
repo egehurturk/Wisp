@@ -13,6 +13,7 @@ struct ActiveRunView: View {
     @State private var showingCountdown = false
     @State private var showingRunSummary = false
     @State private var showingPausedOverlay = false
+    @State private var isMapInOverviewMode = false
     private let logger = Logger.ui
     
     // MARK: - Body
@@ -154,7 +155,8 @@ struct ActiveRunView: View {
             region: $viewModel.region,
             userPath: viewModel.userPath,
             ghostPath: viewModel.ghostPath,
-            annotations: viewModel.routeAnnotations
+            annotations: viewModel.routeAnnotations,
+            isOverviewMode: $isMapInOverviewMode
         )
         .scenePadding(.bottom)
         .alert("Location Permission Required", isPresented: $viewModel.locationPermissionDenied) {
@@ -447,8 +449,16 @@ struct ActiveRunView: View {
         if viewModel.isRunning {
             viewModel.pauseRun()
             showPausedOverlay()
+            // Switch to overview mode when paused
+            withAnimation(.easeInOut(duration: 0.5)) {
+                isMapInOverviewMode = true
+            }
         } else {
             viewModel.resumeRun()
+            // Switch back to tracking mode when resumed
+            withAnimation(.easeInOut(duration: 0.5)) {
+                isMapInOverviewMode = false
+            }
         }
         
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
