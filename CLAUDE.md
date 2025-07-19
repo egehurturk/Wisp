@@ -68,7 +68,19 @@ Each feature follows consistent MVVM pattern:
 - **RunCard**: Displays past runs with ghost race results
 - **GoalGhostCard**: Shows training goals/custom ghosts
 
-#### 4. Mock Data System (`Stubs.swift`)
+#### 4. GPS & Map Components (`Features/Record/Views/`)
+- **GPSMapView**: Enhanced MapKit integration with dynamic camera modes
+  - **3D Tracking Mode**: Pitched perspective following user with heading rotation
+  - **Route Overview Mode**: Top-down view showing entire route bounds
+  - **Smooth Transitions**: Animated camera mode switching
+  - **Polyline Rendering**: User path (red) and ghost path (purple, dashed)
+- **UserLocationAnnotationView**: Custom 3D user location indicator
+  - **Ripple Effect**: Animated expanding circles for location tracking
+  - **Dual Modes**: Large 3D annotation vs small flat overview annotation
+  - **Fade Transitions**: Smooth vanish/reappear animations between modes
+  - **Heading Rotation**: Real-time compass direction in 3D mode
+
+#### 5. Mock Data System (`Stubs.swift`)
 - Comprehensive mock implementations for development
 - Realistic data for all models (PastRun, Ghost, Challenge, etc.)
 - Uses real geographic coordinates for route data
@@ -85,7 +97,9 @@ Each feature follows consistent MVVM pattern:
 1. `ActiveRunView` receives `selectedGhost: Ghost` parameter
 2. `ActiveRunViewModel` handles real-time run tracking simulation
 3. Timer-based updates for metrics, location, and ghost comparison
-4. MapKit integration for route visualization
+4. MapKit integration for route visualization with dynamic camera modes
+5. **Route Overview Mode**: Pause button triggers overview of entire route
+6. **3D Tracking Mode**: Resume button returns to immersive following camera
 
 #### Error Handling Pattern
 - ViewModels have dedicated error handling methods

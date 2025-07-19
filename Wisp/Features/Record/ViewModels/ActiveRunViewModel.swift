@@ -36,6 +36,8 @@ final class ActiveRunViewModel: ObservableObject {
     private var laps: [LapData] = []
     private let logger = Logger.general
     private let gpsManager = GPSManager()
+    private let weatherService = WeatherService()
+    private var startWeatherData: WeatherData?
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
@@ -174,6 +176,9 @@ final class ActiveRunViewModel: ObservableObject {
         // Start GPS tracking
         gpsManager.startTracking()
         
+        // Fetch weather data for run start location (once)
+        fetchStartWeatherData()
+        
         // Initialize ghost data
         initializeGhostData()
         
@@ -210,7 +215,7 @@ final class ActiveRunViewModel: ObservableObject {
         // Stop GPS tracking
         gpsManager.stopTracking()
         
-        // TODO: Save run data with actual GPS route
+        // TODO: Save run data with actual GPS route and weather
     }
     
     func addLap() {
@@ -232,7 +237,8 @@ final class ActiveRunViewModel: ObservableObject {
             currentHeartRate: currentHeartRate,
             currentCadence: currentCadence,
             route: userPath,
-            laps: laps
+            laps: laps,
+            weatherData: startWeatherData
         )
     }
     
@@ -242,6 +248,24 @@ final class ActiveRunViewModel: ObservableObject {
     }
     
     // MARK: - Private Methods
+    private func fetchStartWeatherData() {
+        Task {
+            do {
+                // Use current region center as start location
+                let startLocation = region.center
+                let weather = try await weatherService.fetchCurrentWeather(for: startLocation)
+                
+                await MainActor.run {
+                    self.startWeatherData = weather
+                    self.logger.info("Weather data fetched for run start: \(weather.formattedTemperature), \(weather.condition.readableDescription)")
+                }
+            } catch {
+                logger.error("Failed to fetch start weather data", error: error)
+                // Continue without weather data
+            }
+        }
+    }
+    
     private func initializeGhostData() {
         // Initialize ghost path from selected ghost route
         if let ghostRoute = selectedGhost?.route {
@@ -398,6 +422,7 @@ struct RunSummaryData {
     let currentCadence: Int?
     let route: [CLLocationCoordinate2D]
     let laps: [LapData]
+    let weatherData: WeatherData?
     
     var formattedDistance: String {
         let kilometers = distance / 1000

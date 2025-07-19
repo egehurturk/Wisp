@@ -14,6 +14,7 @@ struct ActiveRunView: View {
     @State private var showingRunSummary = false
     @State private var showingPausedOverlay = false
     @State private var isMapInOverviewMode = false
+    @State private var runSummaryData: RunSummaryData?
     private let logger = Logger.ui
     
     // MARK: - Body
@@ -70,16 +71,30 @@ struct ActiveRunView: View {
             }
         }
         .fullScreenCover(isPresented: $showingRunSummary) {
-            RunSummaryView(
-                selectedGhost: selectedGhost,
-                runData: viewModel.getRunSummaryData(),
-                viewModel: viewModel
-            ) {
-                // On save
-                handleRunSave()
-            } onDiscard: {
-                // On discard
-                handleRunDiscard()
+            if let runData = runSummaryData {
+                RunSummaryView(
+                    selectedGhost: selectedGhost,
+                    runData: runData,
+                    viewModel: viewModel
+                ) {
+                    // On save
+                    handleRunSave()
+                } onDiscard: {
+                    // On discard
+                    handleRunDiscard()
+                }
+            } else {
+                // Loading state while fetching weather data
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    
+                    Text("Preparing run summary...")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.ultraThinMaterial)
             }
         }
         .navigationBarHidden(true)
@@ -486,6 +501,9 @@ struct ActiveRunView: View {
     private func finishRun() {
         logger.info("Finish run tapped")
         viewModel.endRun()
+        
+        // Get run summary data (now synchronous since weather was fetched at start)
+        runSummaryData = viewModel.getRunSummaryData()
         showingRunSummary = true
     }
     

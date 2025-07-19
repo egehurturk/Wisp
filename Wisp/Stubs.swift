@@ -15,8 +15,7 @@ struct PastRun: Identifiable {
     let route: RunRoute
     private(set) var customTitle: String?
     let location: String
-    let weather: String?
-    let temperature: String?
+    let weatherData: WeatherData?
     
     var generatedTitle: String {
         return customTitle ?? generateTitle()
@@ -86,8 +85,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[0],
             customTitle: nil,
             location: "Golden Gate Park",
-            weather: "Sunny",
-            temperature: "18°C"
+            weatherData: WeatherData.mockData[0]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
@@ -98,8 +96,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[1],
             customTitle: nil,
             location: "Central Park",
-            weather: "Partly Cloudy",
-            temperature: "22°C"
+            weatherData: WeatherData.mockData[1]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
@@ -110,8 +107,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[2],
             customTitle: nil,
             location: "Hyde Park",
-            weather: "Light Rain",
-            temperature: "15°C"
+            weatherData: WeatherData.mockData[2]
         )
     ]
     
@@ -125,8 +121,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[0],
             customTitle: nil,
             location: "Golden Gate Park",
-            weather: "Sunny",
-            temperature: "18°C"
+            weatherData: WeatherData.mockData[0]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
@@ -137,8 +132,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[1],
             customTitle: "Speed Training Session",
             location: "Presidio Park",
-            weather: "Cloudy",
-            temperature: "16°C"
+            weatherData: WeatherData.mockData[1]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
@@ -149,8 +143,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[2],
             customTitle: nil,
             location: "Central Park",
-            weather: "Partly Cloudy",
-            temperature: "22°C"
+            weatherData: WeatherData.mockData[2]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -5, to: Date()) ?? Date(),
@@ -161,8 +154,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[3],
             customTitle: "Long Weekend Run",
             location: "Waterfront Trail",
-            weather: "Sunny",
-            temperature: "20°C"
+            weatherData: WeatherData.mockData[0]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
@@ -173,8 +165,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[4],
             customTitle: nil,
             location: "Hyde Park",
-            weather: "Light Rain",
-            temperature: "15°C"
+            weatherData: WeatherData.mockData[2]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -10, to: Date()) ?? Date(),
@@ -185,8 +176,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[0],
             customTitle: "Recovery Run",
             location: "Stanley Park",
-            weather: "Overcast",
-            temperature: "14°C"
+            weatherData: WeatherData.mockData[1]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date(),
@@ -197,8 +187,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[1],
             customTitle: "Half Marathon Training",
             location: "Lakefront Path",
-            weather: "Sunny",
-            temperature: "25°C"
+            weatherData: WeatherData.mockData[0]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -18, to: Date()) ?? Date(),
@@ -209,8 +198,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[2],
             customTitle: "Tempo Tuesday",
             location: "Riverside Drive",
-            weather: "Windy",
-            temperature: "19°C"
+            weatherData: WeatherData.mockData[1]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -21, to: Date()) ?? Date(),
@@ -221,8 +209,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[3],
             customTitle: nil,
             location: "Mountain Trail",
-            weather: "Foggy",
-            temperature: "12°C"
+            weatherData: WeatherData.mockData[2]
         ),
         PastRun(
             date: Calendar.current.date(byAdding: .day, value: -25, to: Date()) ?? Date(),
@@ -233,8 +220,7 @@ struct PastRun: Identifiable {
             route: RunRoute.mockData[4],
             customTitle: "Birthday Run 🎂",
             location: "City Center",
-            weather: "Sunny",
-            temperature: "21°C"
+            weatherData: WeatherData.mockData[0]
         )
     ]
 }
@@ -678,102 +664,6 @@ struct Challenge: Identifiable {
 }
 
 // MARK: - Stub View Controllers
-
-/// Stub implementation for Home view
-//struct HomeView: View {
-//    private let logger = Logger.ui
-//    
-//    var body: some View {
-//        NavigationView {
-//            ScrollView {
-//                LazyVStack(spacing: 20) {
-//                    // User profile and greeting section
-//                    profileSection
-//                    
-//                    // Past runs section
-//                    pastRunsSection
-//                    
-//                    // Custom goal ghosts section
-//                    customGoalsSection
-//                }
-//                .padding()
-//            }
-//            .navigationTitle("Home")
-//            .navigationBarTitleDisplayMode(.large)
-//        }
-//        .onAppear {
-//            logger.info("HomeView appeared")
-//        }
-//    }
-//    
-//    private var profileSection: some View {
-//        HStack {
-//            VStack(alignment: .leading, spacing: 4) {
-//                Text("Good morning!")
-//                    .font(.title2)
-//                    .fontWeight(.bold)
-//                
-//                Text("Ready for your next run?")
-//                    .font(.subheadline)
-//                    .foregroundColor(.secondary)
-//            }
-//            
-//            Spacer()
-//            
-//            Button(action: {
-//                logger.info("Profile button tapped")
-//            }) {
-//                Image(systemName: "person.crop.circle.fill")
-//                    .font(.system(size: 40))
-//                    .foregroundColor(.blue)
-//            }
-//        }
-//    }
-//    
-//    private var pastRunsSection: some View {
-//        VStack(alignment: .leading, spacing: 16) {
-//            HStack {
-//                Text("Past Runs")
-//                    .font(.title3)
-//                    .fontWeight(.bold)
-//                
-//                Spacer()
-//                
-//                Button("View All") {
-//                    logger.info("View all past runs tapped")
-//                }
-//                .font(.subheadline)
-//                .foregroundColor(.blue)
-//            }
-//            
-//            ForEach(Array(zip(PastRun.mockData.prefix(3), GhostRaceResult.mockData.prefix(3))), id: \.0.id) { run, ghostResult in
-//                RunCard(run: run, ghostResult: ghostResult)
-//            }
-//        }
-//    }
-//    
-//    private var customGoalsSection: some View {
-//        VStack(alignment: .leading, spacing: 16) {
-//            HStack {
-//                Text("Training Goals")
-//                    .font(.title3)
-//                    .fontWeight(.bold)
-//                
-//                Spacer()
-//                
-//                Button("View All") {
-//                    logger.info("View all goals tapped")
-//                }
-//                .font(.subheadline)
-//                .foregroundColor(.blue)
-//            }
-//            
-//            ForEach(CustomGoalGhost.mockData.prefix(2)) { goal in
-//                GoalGhostCard(goal: goal)
-//            }
-//        }
-//    }
-//}
 
 /// Stub implementations for other views
 // RunsView implementation is now in Features/Runs/Views/RunsView.swift

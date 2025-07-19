@@ -80,10 +80,10 @@ struct DetailedRunCard: View {
                 .foregroundColor(.secondary)
                 
                 // Weather info
-                if let weather = run.weather, let temperature = run.temperature {
+                if let weatherData = run.weatherData {
                     HStack(spacing: 8) {
-                        Label(weather, systemImage: weatherIcon(for: weather))
-                        Label(temperature, systemImage: "thermometer")
+                        Label(weatherData.condition.readableDescription, systemImage: weatherData.condition.systemIconName)
+                        Label(weatherData.formattedTemperature, systemImage: "thermometer")
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -269,24 +269,6 @@ struct DetailedRunCard: View {
         return formatter.string(from: date)
     }
     
-    private func weatherIcon(for weather: String) -> String {
-        switch weather.lowercased() {
-        case "sunny":
-            return "sun.max"
-        case "cloudy", "partly cloudy":
-            return "cloud"
-        case "light rain", "rain":
-            return "cloud.rain"
-        case "overcast":
-            return "cloud.fill"
-        case "foggy":
-            return "cloud.fog"
-        case "windy":
-            return "wind"
-        default:
-            return "cloud"
-        }
-    }
     
     private func startEditingTitle() {
         editingTitle = run.generatedTitle

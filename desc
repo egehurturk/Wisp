@@ -44,7 +44,6 @@ Future ideas:
 
 
 
-* Hey claude, please re-design the ActiveRun view. Make it slick, strava-like, and elegant, showing top-statistics in real time.
 
 * Location Services:
     * we need the following services for active runs:
@@ -55,11 +54,11 @@ Future ideas:
         * voice coaching: audio effects that coach you during the run, giving alerts and status about the ghost, etc.
         *
 
+* Run summary view map issue
 * The runs you won and the runs you lost their cards should be different
 * Runs page the top statistics (total runs etc) should not be stick
 * User profile navbar dropdown make it open from the profile pic not the top
 
 
-3D Map view
 
 
