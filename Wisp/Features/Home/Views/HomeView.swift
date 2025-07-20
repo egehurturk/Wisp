@@ -240,7 +240,7 @@ struct HomeView: View {
                 )
             } else {
                 ForEach(viewModel.customGoals) { goal in
-                    GoalGhostCard(goal: goal)
+                    GoalGhostCard(goal: goal).background(GradientBackground())
                 }
             }
         }
@@ -327,7 +327,7 @@ struct HomeView: View {
                         
                         // Existing challenge cards
                         ForEach(viewModel.challenges) { challenge in
-                            ChallengeCard(challenge: challenge)
+                            ChallengeCard(challenge: challenge).background(GradientBackground())
                         }
                     }
                     .padding(.horizontal, 4)

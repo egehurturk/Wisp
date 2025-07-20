@@ -502,7 +502,7 @@ struct ActiveRunView: View {
         logger.info("Finish run tapped")
         viewModel.endRun()
         
-        // Get run summary data (now synchronous since weather was fetched at start)
+        // Get run summary data
         runSummaryData = viewModel.getRunSummaryData()
         showingRunSummary = true
     }
