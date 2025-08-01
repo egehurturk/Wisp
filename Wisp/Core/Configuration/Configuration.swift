@@ -68,6 +68,7 @@ enum Configuration {
     }
 
     enum Supabase {
+        // TODO: migrate these to new API keys (supabase)
         // These should be loaded from environment variables or configuration files
         // For development, fallback to demo values (mark them clearly as insecure)
         static var url: String {
@@ -111,7 +112,7 @@ enum Configuration {
             #if DEBUG
             // Demo client ID - replace with your actual Google client ID
             logger.warning("Using demo Google client ID. Configure GOOGLE_CLIENT_ID in Info.plist for production.")
-            return "689472754214-j3ichq62higpbff1jh6ak0hhpvssgqkq.apps.googleusercontent.com"
+            return "482888449961-i0njs56p0dkecjhfdf4ki64m20qvn3go.apps.googleusercontent.com"
             #else
             fatalError("GOOGLE_CLIENT_ID not configured. Add it to Info.plist or use environment variables.")
             #endif
@@ -119,6 +120,7 @@ enum Configuration {
         
         // Client secret should never be in mobile apps
         // Google OAuth for mobile uses PKCE flow without client secret
+        // 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
     }
     
     enum Security {

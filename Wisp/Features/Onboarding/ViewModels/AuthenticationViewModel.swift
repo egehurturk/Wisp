@@ -165,6 +165,9 @@ class AuthenticationViewModel: ObservableObject {
                 password: password,
                 username: username
             )
+            
+            // Mark that this is a first launch after account creation
+            UserDefaults.standard.markFirstLaunchAfterAccountCreation()
         }
     }
     
@@ -190,6 +193,10 @@ class AuthenticationViewModel: ObservableObject {
         
         await performAuthAction("googleSignIn") { [self] in
             try await supabaseClient.signInWithGoogle()
+            
+            // Mark that this could be a first launch after account creation
+            // Note: Google OAuth can be both sign-in and sign-up
+            UserDefaults.standard.markFirstLaunchAfterAccountCreation()
         }
     }
     

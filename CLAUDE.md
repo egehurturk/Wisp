@@ -139,3 +139,79 @@ Each feature follows consistent MVVM pattern:
 - **Swift Version**: 5.0
 - **Bundle ID**: com.Wisp
 - **Schemes**: Wisp (main), WispTests, WispUITests
+
+## Backend Database Design
+
+### Database Architecture Overview
+The backend uses a PostgreSQL database with UUID primary keys and comprehensive foreign key relationships. The schema supports:
+- User management with OAuth integrations (Strava, Google)
+- Run tracking with GPS routes and weather data
+- Ghost racing system for performance comparisons
+- Social features (following, challenges, groups)
+- Analytics and achievement systems
+
+### Core Database Tables
+
+#### User Management
+- **`users`**: Core user profiles with authentication data
+- **`user_oauth_connections`**: OAuth tokens and connections (Strava, Google)
+- **`user_preferences`**: App settings and user preferences
+- **`notification_settings`**: Notification preferences per user
+
+#### Run Data Storage
+- **`runs`**: Core run data (distance, duration, pace, calories, elevation)
+  - Supports both app-recorded and imported runs (Strava)
+  - Includes `external_id` for Strava activity mapping
+  - `data_source` field tracks origin ('app', 'strava', etc.)
+- **`run_routes`**: GPS coordinate data stored as JSONB arrays
+  - Includes encoded polylines for efficient transmission
+  - Start/end coordinates for quick location queries
+- **`run_weather`**: Weather conditions during runs
+  - Temperature, humidity, wind, conditions, pressure
+
+#### Ghost Racing System
+- **`ghost_types`**: Defines ghost categories (personal_record, strava_friend, custom_goal)
+- **`ghosts`**: Ghost configurations with target times and pacing
+  - References to base runs for personal records
+  - References to Strava friends for competition
+  - JSONB custom splits for training plans
+- **`ghost_race_results`**: Results from racing against ghosts
+  - Time differences, completion percentages
+  - Detailed split-by-split comparisons in JSONB
+
+#### Social Features
+- **`user_relationships`**: Following/friend connections
+  - Supports multiple relationship types including Strava friends
+- **`challenges`**: Group challenges and competitions
+  - Flexible challenge types (distance, time, pace)
+  - Public/private visibility settings
+- **`challenge_participants`**: User participation in challenges
+  - Rankings and completion status
+- **`challenge_runs`**: Runs that count toward challenges
+
+#### System Features
+- **`notifications`**: In-app notification system
+- **`user_statistics`**: Aggregated performance metrics
+- **`achievements`**: Achievement system with badges
+- **`training_plans`**: Structured training schedules
+
+### Key Database Design Decisions
+
+1. **UUID Primary Keys**: Better security and distributed system support
+2. **JSONB Storage**: Flexible storage for GPS coordinates, splits, and metadata
+3. **Separate Route Tables**: Large GPS data separated from main runs table for performance
+4. **OAuth Integration**: Dedicated table supporting multiple providers per user
+5. **Flexible Ghost System**: Supports personal records, Strava friends, and custom goals
+6. **Social Features**: Generic relationship system supporting various connection types
+
+### Data Relationships
+- Users have many runs, ghosts, and challenge participations
+- Runs have one-to-one relationships with routes and weather
+- Ghosts can reference specific runs (personal records) or users (Strava friends)
+- Many-to-many relationships through junction tables for challenges and social connections
+
+### Performance Optimizations
+- Strategic indexes on frequently queried columns (user_id, timestamps, locations)
+- JSONB indexes for GPS coordinate queries
+- Separate tables for large/optional data to keep main tables lean
+- Aggregated statistics tables for dashboard performance

@@ -6,6 +6,7 @@ struct MainTabView: View {
     // MARK: - Properties
     @State private var selectedTab: Tab = .home
     @State private var showingSelectRunType = false
+    @State private var showingStravaModal = false
     private let logger = Logger.ui
     
     // MARK: - Tab Enum
@@ -17,6 +18,7 @@ struct MainTabView: View {
         case statistics = "Statistics"
         case goals = "Goals"
         case groups = "Groups"
+        case settings = "Settings"
         
         
         var icon: String {
@@ -28,6 +30,7 @@ struct MainTabView: View {
             case .statistics: return "chart.bar"
             case .goals: return "target"
             case .groups: return "person.3"
+            case .settings: return "gearshape"
             }
         }
         
@@ -40,6 +43,7 @@ struct MainTabView: View {
             case .statistics: return "chart.bar.fill"
             case .goals: return "target"
             case .groups: return "person.3.fill"
+            case .settings: return "gearshape.fill"
             }
         }
         
@@ -76,6 +80,9 @@ struct MainTabView: View {
                 
                 GroupsView()
                     .tag(Tab.groups)
+                
+                SettingsView()
+                    .tag(Tab.settings)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             
@@ -91,11 +98,17 @@ struct MainTabView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)
         }
+        .sheet(isPresented: $showingStravaModal) {
+            StravaConnectionModalView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
         .onChange(of: selectedTab) { newTab in
             handleTabChange(newTab)
         }
         .onAppear {
             logger.info("MainTabView appeared")
+            checkAndShowStravaModal()
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToHome)) { _ in
             logger.info("Received navigation to home notification")
@@ -124,9 +137,7 @@ struct MainTabView: View {
             tabBarItem(for: .ghosts)
             
             // Settings Tab
-//            tabBarItem(for: .goals)
-            
-            tabBarItem(for: .groups)
+            tabBarItem(for: .settings)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 12)
@@ -207,6 +218,15 @@ struct MainTabView: View {
         
         // Show Select Run Type screen
         showingSelectRunType = true
+    }
+    
+    private func checkAndShowStravaModal() {
+        if UserDefaults.standard.shouldShowStravaConnectionModal() {
+            logger.info("Showing Strava connection modal for first-time user")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showingStravaModal = true
+            }
+        }
     }
 }
 

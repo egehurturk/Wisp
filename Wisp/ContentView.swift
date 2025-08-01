@@ -17,7 +17,7 @@ struct ContentView: View {
         Group {
             if !isInitialized {
                 LoadingView()
-            } else if true { //supabaseManager.isAuthenticated {
+            } else if supabaseManager.isAuthenticated {
                 MainTabView()
                     .onAppear {
                         logger.info("Wisp app launched successfully & authenticated - returning user")
