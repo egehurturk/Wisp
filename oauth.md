@@ -13,3 +13,7 @@ think about "backend":
 webhooks backend
 
 refactor code
+
+
+        google client secret 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
+        google client id 482888449961-i0njs56p0dkecjhfdf4ki64m20qvn3go.apps.googleusercontent.com

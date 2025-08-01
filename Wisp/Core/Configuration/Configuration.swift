@@ -112,7 +112,7 @@ enum Configuration {
             #if DEBUG
             // Demo client ID - replace with your actual Google client ID
             logger.warning("Using demo Google client ID. Configure GOOGLE_CLIENT_ID in Info.plist for production.")
-            return "482888449961-i0njs56p0dkecjhfdf4ki64m20qvn3go.apps.googleusercontent.com"
+            return ""
             #else
             fatalError("GOOGLE_CLIENT_ID not configured. Add it to Info.plist or use environment variables.")
             #endif
@@ -120,7 +120,6 @@ enum Configuration {
         
         // Client secret should never be in mobile apps
         // Google OAuth for mobile uses PKCE flow without client secret
-        // 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
     }
     
     enum Security {
