@@ -70,4 +70,5 @@ private struct LightGradientBackground: View {
 
 #Preview {
     GradientBackground()
+        .ignoresSafeArea()
 }
