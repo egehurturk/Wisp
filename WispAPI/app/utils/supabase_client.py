@@ -19,7 +19,6 @@ def get_supabase_client() -> Client:
     
     if not settings.supabase_url or not settings.supabase_anon_key:
         raise ValueError("Supabase URL and anon key must be configured")
-    
     try:
         client = create_client(settings.supabase_url, settings.supabase_anon_key)
         logger.info("Supabase client initialized successfully")
@@ -48,6 +47,7 @@ def verify_user_token(token: str) -> dict:
     """Verify JWT token and return user information"""
     try:
         supabase = get_supabase_client()
+        logger.info(token)
         user = supabase.auth.get_user(token)
         return user.user
     except Exception as e:

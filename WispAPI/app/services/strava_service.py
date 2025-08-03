@@ -29,7 +29,7 @@ class StravaService:
         try:
             # Get current token data
             result = self.supabase.table("user_oauth_connections").select(
-                "access_token, refresh_token, expires_at"
+                "access_token, refresh_token, token_expires_at"
             ).eq("user_id", user_id).eq("provider", "strava").execute()
             
             if not result.data:
@@ -39,7 +39,7 @@ class StravaService:
             connection = result.data[0]
             access_token = connection["access_token"]
             refresh_token = connection["refresh_token"]
-            expires_at_str = connection.get("expires_at")
+            expires_at_str = connection.get("token_expires_at")
             
             # Check if token needs refresh (with 5 minute buffer like your Swift code)
             if expires_at_str:
@@ -98,7 +98,7 @@ class StravaService:
                 self.supabase.table("user_oauth_connections").update({
                     "access_token": new_access_token,
                     "refresh_token": new_refresh_token,
-                    "expires_at": expires_at.isoformat()
+                    "token_expires_at": expires_at.isoformat()
                 }).eq("user_id", user_id).eq("provider", "strava").execute()
                 
                 logger.info(f"Successfully refreshed token for user {user_id}")

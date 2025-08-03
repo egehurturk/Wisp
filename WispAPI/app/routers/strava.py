@@ -97,6 +97,8 @@ async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
         logger.error(f"Failed to initiate Strava OAuth: {e}")
         raise HTTPException(status_code=500, detail="Failed to initiate OAuth flow")
 
+
+# This is called by Strava (via redirect) after login.
 @router.post("/callback")
 async def handle_strava_callback(
     callback_data: StravaCallbackRequest,
@@ -160,7 +162,7 @@ async def get_strava_status(current_user: str = Depends(get_current_user)):
         
         # Query user's Strava connection
         result = supabase.table("user_oauth_connections").select(
-            "provider, access_token, refresh_token, expires_at, metadata, created_at"
+            "provider, access_token, refresh_token, token_expires_at, metadata, connected_at"
         ).eq("user_id", current_user).eq("provider", "strava").execute()
         
         if not result.data:
@@ -171,15 +173,16 @@ async def get_strava_status(current_user: str = Depends(get_current_user)):
         
         # Check if token is expired
         expires_at = None
-        if connection.get("expires_at"):
-            expires_at = datetime.fromisoformat(connection["expires_at"].replace("Z", "+00:00"))
+        if connection.get("token_expires_at"):
+            expires_at = datetime.fromisoformat(connection["token_expires_at"].replace("Z", "+00:00"))
+
         
         return StravaConnectionStatus(
             connected=True,
             athlete_id=metadata.get("athlete_id"),
             athlete_name=metadata.get("athlete_name"),
             athlete_username=metadata.get("athlete_username"),
-            connected_at=datetime.fromisoformat(connection["created_at"].replace("Z", "+00:00")),
+            connected_at=datetime.fromisoformat(connection["connected_at"].replace("Z", "+00:00")),
             token_expires_at=expires_at,
             scopes=metadata.get("scope")
         )
@@ -266,14 +269,15 @@ async def store_strava_tokens(user_id: str, token_data: StravaTokenResponse):
         "athlete_lastname": athlete.get("lastname"),
         "scope": "read,activity:read"  # Store granted scope
     }
-    
+    logger.info(athlete)
     # Upsert connection record
     connection_data = {
         "user_id": user_id,
         "provider": "strava",
+        "provider_user_id": athlete.get("id"),
         "access_token": token_data.access_token,
         "refresh_token": token_data.refresh_token,
-        "expires_at": expires_at.isoformat(),
+        "token_expires_at": expires_at.isoformat(),
         "metadata": metadata
     }
     
