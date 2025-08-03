@@ -6,7 +6,7 @@ Handles token refresh, data synchronization, and API requests.
 
 import httpx
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 
 from ..config import get_settings, StravaConstants
@@ -41,7 +41,7 @@ class StravaService:
             refresh_token = connection["refresh_token"]
             expires_at_str = connection.get("token_expires_at")
             
-            # Check if token needs refresh (with 5 minute buffer like your Swift code)
+            # Check if token needs refresh (with 5 minute buffer)
             if expires_at_str:
                 expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
                 if expires_at <= datetime.utcnow() + timedelta(minutes=5):
@@ -49,7 +49,7 @@ class StravaService:
                     new_token = await self._refresh_access_token(user_id, refresh_token)
                     return new_token
             else:
-                # No expiration date - refresh as precaution (matching Swift logic)
+                # No expiration date, refresh as precaution
                 logger.warning(f"No token expiration date for user {user_id}, refreshing as precaution")
                 new_token = await self._refresh_access_token(user_id, refresh_token)
                 return new_token
@@ -127,15 +127,17 @@ class StravaService:
         """
         Fetch athlete activities from Strava API
         """
+        print("Starting fetch...")
         access_token = await self.get_valid_access_token(user_id)
         if not access_token:
             raise Exception("No valid access token available")
         
         try:
-            # Build URL (matching your Swift API call)
+            # Build URL
             url = f"{StravaConstants.API_BASE_URL}/athlete/activities"
             params = {"per_page": per_page, "page": page}
             
+            print("Getting runs...")
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     url,
@@ -156,16 +158,18 @@ class StravaService:
                     raise Exception(f"API request failed with status {response.status_code}")
                 
                 activities_data = response.json()
+                logger.info(activities_data)
                 activities = [StravaActivity(**activity) for activity in activities_data]
                 
                 # Filter for runs (matching your Swift filtering)
                 runs = [activity for activity in activities if activity.type == "Run"]
-                
-                logger.info(f"Fetched {len(activities)} total activities, {len(runs)} runs for user {user_id}")
+                print("Got runs...")
+                print(f"Fetched {len(activities)} total activities, {len(runs)} runs for user {user_id}")
                 
                 return runs
                 
         except Exception as e:
+            print("Did not get runs...")
             logger.error(f"Failed to fetch activities for user {user_id}: {e}")
             raise
     
@@ -252,3 +256,8 @@ class StravaService:
             
         except Exception as e:
             logger.error(f"Failed to store route data for run {run_id}: {e}")
+
+# TODO:
+#   * Change for run in runs -> store run db TO bulk insertion
+#   * Inspect Strava RUn type to see if it matches db
+#   * Log issues?

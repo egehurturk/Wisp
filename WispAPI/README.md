@@ -25,25 +25,31 @@ FastAPI backend service for the Wisp running app, handling Strava OAuth, analyti
    cd WispAPI
    ```
 
-2. **Install dependencies**:
+2. **Activate virtual environment**:
+   ```bash
+   python -m venv .venv
+   source ./.venv/bin/activate
+   ```
+
+3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Configure environment**:
+4. **Configure environment**:
    ```bash
    cp .env.example .env
    # Edit .env with your actual values
    ```
 
-4. **Run the development server**:
+5. **Run the development server**:
    ```bash
-   python -m app.main
+   python3 -m app.main
    # Or using uvicorn directly:
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-5. **Visit API documentation**:
+6. **Visit API documentation**:
    - Swagger UI: http://localhost:8000/docs
    - ReDoc: http://localhost:8000/redoc
 
@@ -221,6 +227,11 @@ pytest --cov=app
 3. **Token Refresh Failed**
    - User may need to re-authenticate
    - Check Strava API rate limits
+
+4. **`Client.__init__() got an unexpected keyword argument 'proxy'`
+   - Check if the virtual environment is activated
+   - Make sure that `httpx==0.27.0`
+   - Make sure that you are calling `python3` instead of `python` -- `python` refers to system-wide python.
 
 ### Debug Mode
 

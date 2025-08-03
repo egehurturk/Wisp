@@ -11,7 +11,7 @@ import secrets
 import hashlib
 import base64
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import json
 
@@ -20,6 +20,7 @@ from ..models.strava import (
     StravaCallbackRequest,
     StravaConnectionStatus,
     StravaDisconnectResponse,
+    StravaActivity,
     StravaTokenResponse,
     OAuthState
 )
@@ -151,6 +152,9 @@ async def handle_strava_callback(
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        print("TRACEBACK:")
+        traceback.print_exc()
         logger.error(f"Callback handling failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to complete OAuth flow")
 
@@ -220,6 +224,20 @@ async def disconnect_strava(current_user: str = Depends(get_current_user)):
         logger.error(f"Failed to disconnect Strava: {e}")
         raise HTTPException(status_code=500, detail="Failed to disconnect Strava account")
 
+
+@router.get("/fetch-all")
+async def fetch_strava_activities(current_user: str = Depends(get_current_user)):
+    """
+    Fetch All Strava activities for user
+    """
+    try:
+        strava_service = StravaService()
+        runs = await strava_service.fetch_athlete_activities(current_user)
+        logger.info(f"Completed initial Strava data sync for user {current_user}")
+        return runs
+    except Exception as e:
+        logger.error(f"Initial Strava sync failed for user {current_user}: {e}")
+
 # Helper Functions
 
 async def exchange_code_for_tokens(code: str, code_verifier: str) -> StravaTokenResponse:
@@ -270,6 +288,7 @@ async def store_strava_tokens(user_id: str, token_data: StravaTokenResponse):
         "scope": "read,activity:read"  # Store granted scope
     }
     logger.info(athlete)
+    today = datetime.utcnow().isoformat()
     # Upsert connection record
     connection_data = {
         "user_id": user_id,
@@ -278,13 +297,16 @@ async def store_strava_tokens(user_id: str, token_data: StravaTokenResponse):
         "access_token": token_data.access_token,
         "refresh_token": token_data.refresh_token,
         "token_expires_at": expires_at.isoformat(),
+        "connected_at": today,
+        "last_sync_at": today,
+        "is_active": True,
         "metadata": metadata
     }
     
     # Use upsert to handle existing connections
     supabase.table("user_oauth_connections").upsert(
         connection_data,
-        on_conflict="user_id,provider"
+        on_conflict="user_id,provider" # unique columns
     ).execute()
     
     logger.info(f"Stored Strava tokens for user {user_id}, athlete {athlete.get('id')}")
