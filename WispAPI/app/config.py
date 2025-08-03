@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Strava OAuth Configuration
     strava_client_id: str = ""
     strava_client_secret: str = ""
-    strava_redirect_uri: str = "https://your-backend.com/strava/callback"
+    strava_redirect_uri: str = "http://localhost:8000/strava/callback"
     
     # External APIs
     weather_api_key: str = ""
