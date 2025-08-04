@@ -282,6 +282,7 @@ class StravaOAuthManager: NSObject, ObservableObject {
         logger.info("Processing OAuth callback: \(url.absoluteString)" )
         
         // Validate callback URL
+        print("URL: \(url.absoluteString)")
         guard url.scheme == Configuration.URLSchemes.main else {
             logger.error("Invalid callback URL scheme: \(url.scheme ?? "nil")" )
             lastError = .invalidCallback("Invalid URL scheme")

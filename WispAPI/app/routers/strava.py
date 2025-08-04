@@ -50,16 +50,30 @@ def generate_pkce_challenge(verifier: str) -> str:
 @router.post("/initiate", response_model=StravaAuthInitiateResponse)
 async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
     """
-    Initiate Strava OAuth flow
-    Returns authorization URL and state token for the mobile app
+    Initiate Strava OAuth flow.
+    Should be called by a client able to open oauth url either through web or as a mobile app.
+    Stores a generated state token and user id parsed from the header JWT in a state mapping. 
+    The state token is valid for 10 minutes. 
+    Returns authorization URL and state token for the mobile app.
     """
     try:
+        # ================== Generate PKCE parameters ===================
         # Generate PKCE parameters (following your Swift implementation)
         code_verifier = generate_pkce_verifier()
         code_challenge = generate_pkce_challenge(code_verifier)
-        state_token = secrets.token_urlsafe(32)
+
+        # The current user is linked to this state.  
+        # When the client gives the user id through request headers,
+        # the user id is going to be associated with this state so that 
+        # when Strava redirects to callback, the user id can be queried
+        # from the state as Strava returns the same state token.
+        state_token = secrets.token_urlsafe(32) 
+        # ================================================================
         
+
+        # ===== Create session mapping (state to user id) ======
         # Store OAuth state temporarily (expires in 10 minutes)
+        # TODO: move this to Redis?
         expires_at = datetime.utcnow() + timedelta(minutes=10)
         oauth_state = OAuthState(
             state_token=state_token,
@@ -69,8 +83,9 @@ async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
             expires_at=expires_at
         )
         oauth_states[state_token] = oauth_state
+        # ======================================================
         
-        # Build Strava authorization URL (matching your Swift URL structure)
+        # ================= Build Strava authorization URL ==================
         auth_params = {
             "client_id": settings.strava_client_id,
             "redirect_uri": settings.strava_redirect_uri,
@@ -87,6 +102,7 @@ async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
         auth_url += "&".join([f"{key}={value}" for key, value in auth_params.items()])
         
         logger.info(f"Generated Strava OAuth URL for user {current_user}")
+        # =====================================================================
         
         return StravaAuthInitiateResponse(
             auth_url=auth_url,
@@ -107,11 +123,15 @@ async def handle_strava_callback(
     background_tasks: BackgroundTasks
 ):
     """
-    Handle Strava OAuth callback
-    Exchanges authorization code for access tokens and stores them
+    Exchanges authorization code for access tokens and refresh tokens.
+    Stores oauth connection credentials & information in database.
+    Fetches Strava run activities and stores in database in background.
     """
     try:
+        # ================= Retrieve user id & validate state token =================
         # Validate state token
+        # Remember that the state is mapped to authenticated user id
+        # in oauth_states mapping.
         if callback_data.state not in oauth_states:
             logger.error(f"Invalid or expired state token: {callback_data.state}")
             raise HTTPException(status_code=400, detail="Invalid or expired state token")
@@ -122,7 +142,9 @@ async def handle_strava_callback(
         if datetime.utcnow() > oauth_state.expires_at:
             del oauth_states[callback_data.state]
             raise HTTPException(status_code=400, detail="State token expired")
-        
+        # ==========================================================================
+
+        # =================== Exchange code for tokens & Store in DB =================
         # Exchange code for tokens
         token_data = await exchange_code_for_tokens(
             code=callback_data.code,
@@ -134,16 +156,17 @@ async def handle_strava_callback(
             user_id=oauth_state.user_id,
             token_data=token_data
         )
+        # =============================================================================
         
         # Clean up state
         del oauth_states[callback_data.state]
         
-        # Optionally sync initial data in background
+        # Sync initial data in background
         background_tasks.add_task(sync_initial_strava_data, oauth_state.user_id)
         
         logger.info(f"Successfully completed Strava OAuth for user {oauth_state.user_id}")
         
-        # Should we return anything?
+        # Should we return anything? Idk
         return {
             "success": True,
             "message": "Strava account connected successfully",
@@ -154,15 +177,14 @@ async def handle_strava_callback(
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        print("TRACEBACK:")
-        traceback.print_exc()
         logger.error(f"Callback handling failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to complete OAuth flow")
 
 @router.get("/status", response_model=StravaConnectionStatus)
 async def get_strava_status(current_user: str = Depends(get_current_user)):
-    """Get current Strava connection status for user"""
+    """
+    Get current Strava connection status for authenticated user.
+    """
     try:
         supabase = get_supabase_admin_client()
         
@@ -199,7 +221,9 @@ async def get_strava_status(current_user: str = Depends(get_current_user)):
 
 @router.delete("/disconnect", response_model=StravaDisconnectResponse)
 async def disconnect_strava(current_user: str = Depends(get_current_user)):
-    """Disconnect Strava account and revoke tokens"""
+    """
+    Disconnect Strava account and revoke tokens
+    """
     try:
         supabase = get_supabase_admin_client()
         
@@ -245,7 +269,9 @@ async def fetch_strava_activities(current_user: str = Depends(get_current_user))
 # Helper Functions
 
 async def exchange_code_for_tokens(code: str, code_verifier: str) -> StravaTokenResponse:
-    """Exchange authorization code for access tokens (mimicking your Swift implementation)"""
+    """
+    Exchange authorization code for access tokens
+    """
     
     token_data = {
         "client_id": settings.strava_client_id,

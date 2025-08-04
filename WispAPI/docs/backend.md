@@ -6,10 +6,8 @@
 - **Backend Framework**: FastAPI (Python 3.11+)
 - **Database**: Supabase PostgreSQL with existing schema
 - **Authentication**: Supabase Auth with JWT tokens
-- **Real-time**: WebSockets + Supabase Realtime subscriptions
 - **External APIs**: Strava API, Weather APIs
-- **ML/Analytics**: scikit-learn, pandas, numpy
-- **Deployment**: Railway/Fly.io/Digital Ocean App Platform
+- **Deployment**: Railway/Fly.io/Digital Ocean App Platform (?)
 
 ### Architecture Pattern
 ```
@@ -25,20 +23,15 @@ External Services (Strava, Weather APIs)
 ## Core Responsibilities
 
 ### Backend Service Handles
-1. **Complex Business Logic**
-   - Ghost racing calculations and real-time comparisons
-   - Route analysis and optimization
-
-2. **External API Integrations**
+1. **External API Integrations**
    - Strava OAuth flow and data synchronization
    - Weather API integration for historical/real-time data
    - Future integrations (Apple Health, Google Fit, etc.)
 
-3. **Background Processing**
+2. **Background Processing**
    - Data import jobs (Strava activities)
-   - Analytics calculations
-   - Notification sending
-   - Cache warming and optimization
+   - Analytics calculations (for future implementation)
+   - Notification sending (for future webhooks implementation)
 
 ### Supabase Handles
 1. **Data Persistence**
@@ -56,43 +49,6 @@ External Services (Strava, Weather APIs)
    - Profile images
    - Route thumbnails and media
 
-## Database Integration
-
-### Connection Pattern
-```python
-from supabase import create_client, Client
-import os
-
-# Initialize Supabase client
-supabase: Client = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_ANON_KEY")
-)
-
-# For service role operations (admin access)
-supabase_admin: Client = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-)
-```
-
-### Authentication Integration
-```python
-# Validate JWT tokens from iOS app
-def verify_token(token: str):
-    try:
-        user = supabase.auth.get_user(token)
-        return user
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-```
-
-### Database Operations
-```python
-# Use existing schema and RLS policies
-# All operations respect user permissions automatically
-runs = supabase.table("runs").select("*").eq("user_id", user_id).execute()
-```
 
 ## Key Features Implementation
 
@@ -100,39 +56,37 @@ runs = supabase.table("runs").select("*").eq("user_id", user_id).execute()
 ```python
 class StravaService:
     """Complete Strava API integration"""
-    
-    async def sync_activities(self, user_id):
-        # Bidirectional sync with Strava
-        # Import new activities
-        # Export app activities to Strava
-        pass
-    
-    async def refresh_oauth_token(self, user_id):
-        # Handle token refresh automatically
-        # Update stored credentials
-        pass
-
     ...
 ```
+
+See `app/services/strava_service.py` and `app/routers/strava.py` for integrating Strava with python.
 
 ## Development Setup
 
 ### Environment Variables
 ```bash
-# Supabase Configuration
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_anon_public_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-# External APIs
-STRAVA_CLIENT_ID=your_strava_client_id
-STRAVA_CLIENT_SECRET=your_strava_client_secret
-WEATHER_API_KEY=your_weather_api_key
+# Environment Configuration for Wisp Backend
 
 # Application Settings
-SECRET_KEY=your_jwt_secret_key
+ENVIRONMENT=development
 DEBUG=True
-CORS_ORIGINS=http://localhost:3000,https://yourapp.com
+SECRET_KEY=wisp-backend-secret-key-2025
+
+# Supabase Configuration
+SUPABASE_URL=https://tcpvmldytbxoyslrobot.supabase.co
+SUPABASE_ANON_KEY=e...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# Strava OAuth Configuration
+STRAVA_CLIENT_ID=...
+STRAVA_CLIENT_SECRET=...
+STRAVA_REDIRECT_URI=http://localhost:8000/strava/callback
+
+# External APIs
+WEATHER_API_KEY=your-weather-api-key
+
+# CORS Origins (comma-separated)
+CORS_ORIGINS=http://localhost:3000,http://localhost:8000,wisp://
 ```
 
 ### Project Structure
@@ -159,12 +113,10 @@ wisp-backend/
 │   │   ├── ghost.py
 │   │   └── responses.py
 │   ├── utils/                 # Utilities
-│   │   ├── supabase_client.py
-│   │   ├── auth_utils.py
-│   │   └── ml_utils.py
-│   └── websockets/            # WebSocket handlers
-│       ├── racing.py
-│       └── live_tracking.py
+│       ├── supabase_client.py
+│       ├── auth_utils.py
+│       └── ml_utils.py
+│  
 ├── tests/                     # Test suite
 ├── requirements.txt           # Python dependencies
 ├── Dockerfile                # Container configuration
@@ -193,11 +145,22 @@ PORT = { default = "8000" }
 ```python
 @app.get("/health")
 async def health_check():
+    """Health check endpoint for deployment monitoring"""
+    try:
+        # Test Supabase connection
+        supabase = get_supabase_client()
+        # Simple query to test connection
+        result = supabase.table("profiles").select("id").limit(1).execute()
+        database_status = "connected"
+    except Exception as e:
+        database_status = f"disconnected: {str(e)}"
+    
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0",
-        "database": "connected" if supabase_health_check() else "disconnected"
+        "database": database_status,
+        "environment": settings.environment
     }
 ```
 
@@ -236,7 +199,6 @@ async def health_check():
 
 ### API Communication
 - iOS app makes HTTP requests to FastAPI endpoints
-- WebSocket connections for real-time features
 - JWT tokens for authentication
 - JSON responses matching existing model structures
 
