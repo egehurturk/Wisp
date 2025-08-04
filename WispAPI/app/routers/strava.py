@@ -99,6 +99,7 @@ async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Failed to initiate OAuth flow")
 
 
+# TODO: change this from POST to GET? Strava redirects to here
 # This is called by Strava (via redirect) after login.
 @router.post("/callback")
 async def handle_strava_callback(
@@ -142,6 +143,7 @@ async def handle_strava_callback(
         
         logger.info(f"Successfully completed Strava OAuth for user {oauth_state.user_id}")
         
+        # Should we return anything?
         return {
             "success": True,
             "message": "Strava account connected successfully",
@@ -166,7 +168,7 @@ async def get_strava_status(current_user: str = Depends(get_current_user)):
         
         # Query user's Strava connection
         result = supabase.table("user_oauth_connections").select(
-            "provider, access_token, refresh_token, token_expires_at, metadata, connected_at"
+            "provider, access_token, refresh_token, token_expires_at, is_active, metadata, connected_at"
         ).eq("user_id", current_user).eq("provider", "strava").execute()
         
         if not result.data:
@@ -180,9 +182,9 @@ async def get_strava_status(current_user: str = Depends(get_current_user)):
         if connection.get("token_expires_at"):
             expires_at = datetime.fromisoformat(connection["token_expires_at"].replace("Z", "+00:00"))
 
-        
+        print(connection.get("is_active"))
         return StravaConnectionStatus(
-            connected=True,
+            connected=connection.get("is_active"),
             athlete_id=metadata.get("athlete_id"),
             athlete_name=metadata.get("athlete_name"),
             athlete_username=metadata.get("athlete_username"),
@@ -210,7 +212,9 @@ async def disconnect_strava(current_user: str = Depends(get_current_user)):
             # Revoke token with Strava (optional but recommended)
             access_token = result.data[0]["access_token"]
             await revoke_strava_token(access_token)
-        
+
+        # TODO: delete, or make is_active = False and have a subprocess that deletes rows
+        # with is_active = False later?
         # Delete connection from database
         supabase.table("user_oauth_connections").delete().eq(
             "user_id", current_user
