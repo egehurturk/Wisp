@@ -10,6 +10,7 @@ struct WispButton: View {
         case icon
         case record
         case ghost
+        case destructive
         
         var backgroundColor: Color {
             switch self {
@@ -18,6 +19,7 @@ struct WispButton: View {
             case .icon: return .clear
             case .record: return .red
             case .ghost: return .purple.opacity(0.8)
+            case .destructive: return .red
             }
         }
         
@@ -28,6 +30,7 @@ struct WispButton: View {
             case .icon: return .blue
             case .record: return .white
             case .ghost: return .white
+            case .destructive: return .white
             }
         }
         
@@ -38,6 +41,7 @@ struct WispButton: View {
             case .icon: return .clear
             case .record: return .red
             case .ghost: return .purple
+            case .destructive: return .red
             }
         }
     }
@@ -108,8 +112,6 @@ struct WispButton: View {
     
     // MARK: - Private Methods
     private func handleButtonTap() {
-        logger.info("Button tapped: \(title)")
-        
         // Add haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()

@@ -107,7 +107,6 @@ struct MainTabView: View {
             handleTabChange(newTab)
         }
         .onAppear {
-            logger.info("MainTabView appeared")
             checkAndShowStravaModal()
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToHome)) { _ in
@@ -202,8 +201,6 @@ struct MainTabView: View {
     
     // MARK: - Private Methods
     private func handleTabChange(_ newTab: Tab) {
-        logger.info("Tab changed to: \(newTab.rawValue)")
-        
         // Add haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()

@@ -128,7 +128,6 @@ final class RunsViewModel: ObservableObject {
     
     // MARK: - Initialization
     init() {
-        logger.info("RunsViewModel initialized")
         setupBindings()
     }
     
@@ -212,9 +211,6 @@ final class RunsViewModel: ObservableObject {
             
             // Update filtered runs
             updateFilteredRuns()
-            
-            logger.info("Successfully loaded \(allRuns.count) runs")
-            
         } catch {
             logger.error("Failed to load runs", error: error)
             errorMessage = "Failed to load runs. Please try again."

@@ -96,8 +96,6 @@ async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
             "code_challenge": code_challenge,
             "code_challenge_method": StravaConstants.CODE_CHALLENGE_METHOD
         }
-
-        print(auth_params)
         
         # Build URL
         auth_url = f"{StravaConstants.AUTHORIZATION_URL}?"
@@ -120,10 +118,11 @@ async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
 # This is called by Strava (via redirect) after login.
 # TODO: configure callback to be mobile app, when callback happens mobile
 # app calls this endpoint
-@router.get("/callback")
+@router.post("/callback")
 async def handle_strava_callback(
     background_tasks: BackgroundTasks,
-    callback_data: StravaCallbackRequest = Depends()
+    callback_data: StravaCallbackRequest,
+    current_user = Depends(get_current_user)
 ):
     """
     Exchanges authorization code for access tokens and refresh tokens.
@@ -205,8 +204,6 @@ async def get_strava_status(current_user: str = Depends(get_current_user)):
         expires_at = None
         if connection.get("token_expires_at"):
             expires_at = datetime.fromisoformat(connection["token_expires_at"].replace("Z", "+00:00"))
-
-        print(connection.get("is_active"))
         return StravaConnectionStatus(
             connected=connection.get("is_active"),
             athlete_id=metadata.get("athlete_id"),
@@ -233,7 +230,6 @@ async def disconnect_strava(current_user: str = Depends(get_current_user)):
         result = supabase.table("user_oauth_connections").select(
             "access_token"
         ).eq("user_id", current_user).eq("provider", "strava").execute()
-        
         if result.data:
             # Revoke token with Strava (optional but recommended)
             access_token = result.data[0]["access_token"]

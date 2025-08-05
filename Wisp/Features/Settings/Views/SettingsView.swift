@@ -14,6 +14,7 @@ struct SettingsView: View {
     // MARK: - Properties
     @StateObject private var stravaManager = StravaOAuthManager.shared
     @State private var isConnectingToStrava = false
+    @State private var isDisconnectingStrava = false
     @State private var showingStravaDisconnectAlert = false
     private let logger = Logger.ui
     
@@ -35,14 +36,13 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
-            .onAppear {
-                logger.info("SettingsView appeared")
-            }
         }
         .alert("Disconnect Strava", isPresented: $showingStravaDisconnectAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Disconnect", role: .destructive) {
-                disconnectStrava()
+                Task {
+                    await disconnectStrava()
+                }
             }
         } message: {
             Text("Are you sure you want to disconnect your Strava account? This will remove access to your Strava activities and friends.")
@@ -96,11 +96,13 @@ struct SettingsView: View {
                 Spacer()
                 
                 if stravaManager.isAuthenticated {
-                    Button("Disconnect") {
+                    WispButton(
+                        title: "Disconnect",
+                        style: .destructive,
+                        isLoading: isDisconnectingStrava
+                    ) {
                         showingStravaDisconnectAlert = true
                     }
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.red)
                 } else {
                     WispButton(
                         title: "Connect",
@@ -214,13 +216,11 @@ struct SettingsView: View {
     // MARK: - Private Methods
     
     private func connectToStrava() {
-        logger.info("User initiated Strava connection from Settings")
         isConnectingToStrava = true
         
         Task {
             do {
                 try await stravaManager.startAuthorization()
-                logger.info("Strava authorization started successfully from Settings")
             } catch {
                 logger.error("Failed to start Strava authorization from Settings: \(error)")
                 isConnectingToStrava = false
@@ -228,9 +228,18 @@ struct SettingsView: View {
         }
     }
     
-    private func disconnectStrava() {
-        logger.info("User disconnected Strava from Settings")
-        stravaManager.signOut()
+    private func disconnectStrava() async {
+        isDisconnectingStrava = true
+        
+        do {
+            try await stravaManager.disconnectStrava()
+            logger.info("Successfully disconnected Strava from Settings")
+        } catch {
+            logger.error("Failed to disconnect Strava from Settings: \(error)")
+        }
+        
+        isDisconnectingStrava = false
+        isConnectingToStrava = false
     }
 }
 

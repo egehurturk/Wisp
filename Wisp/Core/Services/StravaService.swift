@@ -165,36 +165,30 @@ class StravaOAuthManager: NSObject, ObservableObject {
     // MARK: - Secure OAuth Flow
     
     func startAuthorization() {
-        logger.info("Starting Strava OAuth authorization through backend")
-        
         isLoading = true
         lastError = nil
         
         Task {
             do {
-                logger.info("Calling backendService.initiateStravaOAuth()")
                 // Step 1: Initiate OAuth with backend
                 let initiateResponse = try await backendService.initiateStravaOAuth()
-                logger.info("Backend OAuth initiated - state: \(initiateResponse.state)")
                 
                 // Step 2: Open OAuth URL
                 guard let authURL = URL(string: initiateResponse.authUrl) else {
                     throw StravaError.invalidURL
                 }
-                logger.info("OAuth URL: \(authURL.absoluteString)")
-                logger.info("Opening URL in browser or app")
                 await MainActor.run {
                     self.openOAuthURL(authURL)
                 }
                 
                 // Step 3: Poll for connection status
-                logger.info("Starting polling...")
-                let connectionStatus = try await backendService.pollForConnection()
+//                logger.info("Starting polling...")
+//                let connectionStatus = try await backendService.pollForConnection()
                 
                 // Step 4: Update UI with success
-                await MainActor.run {
-                    self.handleBackendAuthSuccess(connectionStatus)
-                }
+//                await MainActor.run {
+//                    self.handleBackendAuthSuccess(connectionStatus)
+//                }
                 
             } catch {
                 logger.error("Backend OAuth failed: \(error.localizedDescription)")
@@ -212,7 +206,6 @@ class StravaOAuthManager: NSObject, ObservableObject {
     
     // MARK: - Backend OAuth Helpers
     private func openOAuthURL(_ url: URL) {
-        logger.info("Opening OAuth URL: \(url.absoluteString)")
         
         // Check if Strava app is installed
         if url.scheme == "strava" &&  UIApplication.shared.canOpenURL(url) {
@@ -227,7 +220,6 @@ class StravaOAuthManager: NSObject, ObservableObject {
             }
         } else {
             // Fallback to web authentication
-            logger.info("Opening \(url) in Safari")
             openOAuthUrlInSafari(url)
         }
     }
@@ -266,11 +258,94 @@ class StravaOAuthManager: NSObject, ObservableObject {
     // MARK: - Callback Handling
     
     func handleOAuthCallback(url: URL) async {
-        // With backend integration, we don't need to handle callbacks directly
-        // The backend handles the callback and we poll for status instead
-        // This method is kept for compatibility but doesn't process the callback
-        logger.info("⚠️ OAuth callback received - this is no longer used with backend integration")
-        logger.info("OAuth callback ignored - backend handles token exchange automatically")
+        
+        // Parse URL components to extract code, state, and scope
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            logger.error("Failed to parse callback URL components")
+            await MainActor.run {
+                self.lastError = .invalidCallback("Invalid callback URL format")
+                self.isLoading = false
+            }
+            return
+        }
+        
+        // Extract required parameters
+        guard let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
+              !code.isEmpty else {
+            logger.error("Missing or empty authorization code in callback")
+            await MainActor.run {
+                self.lastError = .invalidCallback("Missing authorization code")
+                self.isLoading = false
+            }
+            return
+        }
+        
+        guard let state = components.queryItems?.first(where: { $0.name == "state" })?.value,
+              !state.isEmpty else {
+            logger.error("Missing or empty state parameter in callback")
+            await MainActor.run {
+                self.lastError = .invalidCallback("Missing state parameter")
+                self.isLoading = false
+            }
+            return
+        }
+        
+        // Scope is optional
+        let scope = components.queryItems?.first(where: { $0.name == "scope" })?.value
+        
+        logger.info("Parsed callback parameters - code: \(code.prefix(8))..., state: \(state.prefix(8))..., scope: \(scope ?? "none")")
+        
+        // Check for error parameter (user denied authorization)
+        if let error = components.queryItems?.first(where: { $0.name == "error" })?.value {
+            logger.warning("OAuth authorization denied or failed: \(error)")
+            await MainActor.run {
+                self.lastError = .authorizationFailed("Authorization denied: \(error)")
+                self.isLoading = false
+            }
+            return
+        }
+        
+        // Call backend to complete OAuth flow
+        do {
+            let resp = try await backendService.completeStravaOAuth(
+                code: code,
+                state: state,
+                scope: scope
+            )
+            
+            logger.info("Backend OAuth completion successful")
+            await MainActor.run {
+                // Update local state with backend response
+                self.athleteId = resp.athleteId
+                self.athleteUsername = nil // Backend doesn't return username yet
+                self.athleteFirstName = resp.athleteName // Using name as first name for now
+                self.athleteLastName = nil
+                
+                // Store athlete info locally for consistency with existing keychain logic
+                logger.info("Storing athelete info in KeyChain")
+                storeAthleteInfo(
+                    id: athleteId!,
+                    username: nil,
+                    firstName: resp.athleteName,
+                    lastName: nil
+                )
+                
+                self.isAuthenticated = true
+                self.isLoading = false
+                self.lastError = nil
+            }
+            
+        } catch {
+            logger.error("Backend OAuth completion failed: \(error.localizedDescription)")
+            await MainActor.run {
+                self.isLoading = false
+                if let backendError = error as? BackendStravaError {
+                    self.lastError = .authorizationFailed(backendError.localizedDescription)
+                } else {
+                    self.lastError = .networkError(error.localizedDescription)
+                }
+            }
+        }
     }
     
     // MARK: - Connection Management
@@ -310,7 +385,7 @@ class StravaOAuthManager: NSObject, ObservableObject {
     
     // MARK: - Sign Out
     
-    func signOut() {
+    private func signOut() {
         logger.info("Signing out from Strava")
         
         // Clear tokens from Keychain

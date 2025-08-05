@@ -21,6 +21,20 @@ struct StravaOAuthInitiateResponse: Codable {
     }
 }
 
+struct StravaCallbackResponse: Codable {
+    let success: Bool
+    let message: String
+    let athleteId: Int
+    let athleteName: String
+    
+    enum CodingKeys: String, CodingKey {
+        case success = "success"
+        case message = "message"
+        case athleteId = "athlete_id"
+        case athleteName = "athlete_name"
+    }
+}
+
 struct StravaConnectionStatus: Codable {
     let connected: Bool
     let athleteId: Int?
@@ -114,12 +128,10 @@ class BackendStravaService: ObservableObject {
                 throw BackendStravaError.networkError("Invalid response type")
             }
             
-            logger.info("OAuth initiate response status: \(httpResponse.statusCode)")
             
             switch httpResponse.statusCode {
             case 200:
                 let initiateResponse = try JSONDecoder().decode(StravaOAuthInitiateResponse.self, from: data)
-                logger.info("Successfully initiated OAuth - state: \(initiateResponse.state)")
                 return initiateResponse
                 
             case 401:
@@ -151,7 +163,6 @@ class BackendStravaService: ObservableObject {
     // MARK: - Connection Status Polling
     
     func getStravaConnectionStatus() async throws -> StravaConnectionStatus {
-        logger.debug("Checking Strava connection status")
         
         guard let url = URL(string: "\(Configuration.Backend.baseURL)\(Configuration.Backend.Endpoints.stravaStatus)") else {
             logger.error("Invalid backend status URL")
@@ -176,12 +187,10 @@ class BackendStravaService: ObservableObject {
                 throw BackendStravaError.networkError("Invalid response type")
             }
             
-            logger.debug("Status check response: \(httpResponse.statusCode)")
             
             switch httpResponse.statusCode {
             case 200:
                 let status = try JSONDecoder().decode(StravaConnectionStatus.self, from: data)
-                logger.debug("Connection status: connected=\(status.connected)")
                 return status
                 
             case 401:
@@ -258,18 +267,106 @@ class BackendStravaService: ObservableObject {
     // MARK: - Authentication Helper
     
     private func getAuthToken() async -> String? {
-        logger.debug("Getting authentication token from Supabase")
         
         // Get JWT token from SupabaseManager
         let token = await SupabaseManager.shared.getCurrentUserToken()
         
         if token != nil {
-            logger.debug("Successfully retrieved JWT token from Supabase")
         } else {
             logger.warning("No JWT token available - user may not be authenticated")
         }
         
         return token
+    }
+    
+    // MARK: - OAuth Callback
+    
+    func completeStravaOAuth(code: String, state: String, scope: String? = nil) async throws -> StravaCallbackResponse {
+        logger.info("Completing Strava OAuth with backend callback")
+        
+        guard let url = URL(string: "\(Configuration.Backend.baseURL)\(Configuration.Backend.Endpoints.stravaCallback)") else {
+            logger.error("Invalid backend callback URL")
+            throw BackendStravaError.invalidURL
+        }
+        
+        logger.info("url: \(url)")
+        
+        guard let authToken = await getAuthToken() else {
+            logger.error("No authentication token available")
+            throw BackendStravaError.noAuthToken
+        }
+        
+        var requestBody: [String: String] = [
+            "code": code,
+            "state": state
+        ]
+        if let scope = scope {
+            requestBody.updateValue(scope, forKey: "scope")
+        }
+        
+        let jsonData: Data
+        do {
+            jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [])
+        } catch {
+            logger.error("Failed to serialize JSON: \(error.localizedDescription)")
+            throw BackendStravaError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
+        request.timeoutInterval = Configuration.Backend.defaultTimeout
+        
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw BackendStravaError.networkError("Invalid response type")
+            }
+            
+            logger.info("OAuth callback response status: \(httpResponse.statusCode)")
+            
+            switch httpResponse.statusCode {
+            case 200:
+                let resp = try JSONDecoder().decode(StravaCallbackResponse.self, from: data)
+                logger.info("Successfully completed OAuth - athlete: \(resp.athleteName)")
+                return resp
+                
+            case 400:
+                let errorMessage = String(data: data, encoding: .utf8) ?? "Invalid OAuth parameters"
+                logger.error("Invalid OAuth callback parameters: \(errorMessage)")
+                throw BackendStravaError.oauthFailed(errorMessage)
+                
+            case 401:
+                logger.error("Unauthorized - invalid JWT token")
+                throw BackendStravaError.unauthorized
+                
+            case 404:
+                logger.error("OAuth state not found or expired")
+                throw BackendStravaError.oauthFailed("OAuth session expired or invalid")
+                
+            case 400...499:
+                let errorMessage = String(data: data, encoding: .utf8) ?? "Client error"
+                logger.error("Client error during OAuth callback: \(errorMessage)")
+                throw BackendStravaError.httpError(httpResponse.statusCode, errorMessage)
+                
+            case 500...599:
+                let errorMessage = String(data: data, encoding: .utf8) ?? "Server error"
+                logger.error("Server error during OAuth callback: \(errorMessage)")
+                throw BackendStravaError.httpError(httpResponse.statusCode, errorMessage)
+                
+            default:
+                throw BackendStravaError.httpError(httpResponse.statusCode, "Unexpected response")
+            }
+            
+        } catch let error as BackendStravaError {
+            throw error
+        } catch {
+            logger.error("Network error during OAuth callback: \(error.localizedDescription)")
+            throw BackendStravaError.networkError(error.localizedDescription)
+        }
     }
     
     // MARK: - Connection Management
@@ -287,6 +384,7 @@ class BackendStravaService: ObservableObject {
             throw BackendStravaError.noAuthToken
         }
         
+        
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
@@ -295,7 +393,6 @@ class BackendStravaService: ObservableObject {
         
         do {
             let (data, response) = try await session.data(for: request)
-            
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw BackendStravaError.networkError("Invalid response type")
             }
@@ -304,7 +401,7 @@ class BackendStravaService: ObservableObject {
             
             switch httpResponse.statusCode {
             case 200:
-                logger.info("✅ Successfully disconnected Strava account")
+                logger.info("Successfully disconnected Strava account")
                 return
                 
             case 401:
