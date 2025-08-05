@@ -100,6 +100,7 @@ class BackendStravaService: ObservableObject {
             throw BackendStravaError.noAuthToken
         }
         
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
@@ -161,6 +162,7 @@ class BackendStravaService: ObservableObject {
             logger.error("No authentication token available")
             throw BackendStravaError.noAuthToken
         }
+        
         
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -224,7 +226,7 @@ class BackendStravaService: ObservableObject {
                 let status = try await getStravaConnectionStatus()
                 
                 if status.connected {
-                    logger.info("✅ Strava connection established after \(attempt) attempts")
+                    logger.info("Strava connection established after \(attempt) attempts")
                     return status
                 }
                 
@@ -249,28 +251,25 @@ class BackendStravaService: ObservableObject {
             }
         }
         
-        logger.error("❌ Connection polling timed out after \(maxAttempts) attempts")
+        logger.error("Connection polling timed out after \(maxAttempts) attempts")
         throw BackendStravaError.pollTimeout
     }
     
     // MARK: - Authentication Helper
     
     private func getAuthToken() async -> String? {
-        // Get JWT token from Supabase service
-        // This should integrate with your existing Supabase authentication
-        // For now, return nil to indicate authentication integration needed
         logger.debug("Getting authentication token from Supabase")
         
-        // TODO: Integrate with SupabaseService to get current user JWT
-        // Example:
-        // return await SupabaseService.shared.getCurrentUserToken()
+        // Get JWT token from SupabaseManager
+        let token = await SupabaseManager.shared.getCurrentUserToken()
         
-        #if DEBUG
-        logger.warning("🚨 Authentication integration not implemented - using placeholder")
-        return "placeholder-jwt-token"
-        #else
-        return nil
-        #endif
+        if token != nil {
+            logger.debug("Successfully retrieved JWT token from Supabase")
+        } else {
+            logger.warning("No JWT token available - user may not be authenticated")
+        }
+        
+        return token
     }
     
     // MARK: - Connection Management

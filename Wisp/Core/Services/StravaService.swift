@@ -172,6 +172,7 @@ class StravaOAuthManager: NSObject, ObservableObject {
         
         Task {
             do {
+                logger.info("Calling backendService.initiateStravaOAuth()")
                 // Step 1: Initiate OAuth with backend
                 let initiateResponse = try await backendService.initiateStravaOAuth()
                 logger.info("Backend OAuth initiated - state: \(initiateResponse.state)")
@@ -180,12 +181,14 @@ class StravaOAuthManager: NSObject, ObservableObject {
                 guard let authURL = URL(string: initiateResponse.authUrl) else {
                     throw StravaError.invalidURL
                 }
-                
+                logger.info("OAuth URL: \(authURL.absoluteString)")
+                logger.info("Opening URL in browser or app")
                 await MainActor.run {
                     self.openOAuthURL(authURL)
                 }
                 
                 // Step 3: Poll for connection status
+                logger.info("Starting polling...")
                 let connectionStatus = try await backendService.pollForConnection()
                 
                 // Step 4: Update UI with success
@@ -208,25 +211,29 @@ class StravaOAuthManager: NSObject, ObservableObject {
     }
     
     // MARK: - Backend OAuth Helpers
-    
     private func openOAuthURL(_ url: URL) {
         logger.info("Opening OAuth URL: \(url.absoluteString)")
         
-        // Try to open in Strava app first if available
-        if url.scheme == "strava" && UIApplication.shared.canOpenURL(url) {
-            logger.info("Opening in Strava app")
+        // Check if Strava app is installed
+        if url.scheme == "strava" &&  UIApplication.shared.canOpenURL(url) {
+            logger.info("Opening Strava app for authentication" )
             UIApplication.shared.open(url, options: [:]) { success in
                 if !success {
                     self.logger.warning("Failed to open Strava app, trying Safari")
-                    // Fallback to Safari
-                    UIApplication.shared.open(url, options: [:])
+                    Task { @MainActor in
+                        self.openOAuthUrlInSafari(url)
+                    }
                 }
             }
         } else {
-            // Open in Safari
-            logger.info("Opening in Safari")
-            UIApplication.shared.open(url, options: [:])
+            // Fallback to web authentication
+            logger.info("Opening \(url) in Safari")
+            openOAuthUrlInSafari(url)
         }
+    }
+    
+    private func openOAuthUrlInSafari(_ url: URL) {
+        UIApplication.shared.open(url, options: [:])
     }
     
     private func handleBackendAuthSuccess(_ status: StravaConnectionStatus) {
@@ -240,6 +247,7 @@ class StravaOAuthManager: NSObject, ObservableObject {
         
         // Store athlete info locally for consistency with existing keychain logic
         if let athleteId = status.athleteId {
+            logger.info("Storing athelete info in KeyChain")
             storeAthleteInfo(
                 id: athleteId, 
                 username: nil,
@@ -258,19 +266,17 @@ class StravaOAuthManager: NSObject, ObservableObject {
     // MARK: - Callback Handling
     
     func handleOAuthCallback(url: URL) async {
-        logger.info("⚠️ OAuth callback received - this is no longer used with backend integration")
-        
         // With backend integration, we don't need to handle callbacks directly
         // The backend handles the callback and we poll for status instead
         // This method is kept for compatibility but doesn't process the callback
-        
+        logger.info("⚠️ OAuth callback received - this is no longer used with backend integration")
         logger.info("OAuth callback ignored - backend handles token exchange automatically")
     }
     
     // MARK: - Connection Management
     
     func disconnectStrava() async {
-        logger.info("🔌 Disconnecting Strava account")
+        logger.info("Disconnecting Strava account")
         
         isLoading = true
         
@@ -282,10 +288,10 @@ class StravaOAuthManager: NSObject, ObservableObject {
                 self.isLoading = false
             }
             
-            logger.info("✅ Successfully disconnected from Strava")
+            logger.info("Successfully disconnected from Strava")
             
         } catch {
-            logger.error("❌ Failed to disconnect from Strava backend: \(error.localizedDescription)")
+            logger.error("Failed to disconnect from Strava backend: \(error.localizedDescription)")
             
             await MainActor.run {
                 self.isLoading = false
@@ -530,3 +536,13 @@ extension Data {
             .replacingOccurrences(of: "=", with: "")
     }
 }
+
+
+
+/**
+ 
+ TODO:
+ - Cache strava status --> no need to make an API call to /strava/status in backend, store information in KeyChain or local session storage
+ - App improvements?
+ 
+ */

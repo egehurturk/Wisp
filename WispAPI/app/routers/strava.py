@@ -88,7 +88,7 @@ async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
         # ================= Build Strava authorization URL ==================
         auth_params = {
             "client_id": settings.strava_client_id,
-            "redirect_uri": settings.strava_redirect_uri,
+            "redirect_uri":  settings.strava_redirect_uri,
             "response_type": "code",
             "approval_prompt": "auto",
             "scope": StravaConstants.DEFAULT_SCOPE,
@@ -96,6 +96,8 @@ async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
             "code_challenge": code_challenge,
             "code_challenge_method": StravaConstants.CODE_CHALLENGE_METHOD
         }
+
+        print(auth_params)
         
         # Build URL
         auth_url = f"{StravaConstants.AUTHORIZATION_URL}?"
@@ -115,12 +117,13 @@ async def initiate_strava_oauth(current_user: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Failed to initiate OAuth flow")
 
 
-# TODO: change this from POST to GET? Strava redirects to here
 # This is called by Strava (via redirect) after login.
-@router.post("/callback")
+# TODO: configure callback to be mobile app, when callback happens mobile
+# app calls this endpoint
+@router.get("/callback")
 async def handle_strava_callback(
-    callback_data: StravaCallbackRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    callback_data: StravaCallbackRequest = Depends()
 ):
     """
     Exchanges authorization code for access tokens and refresh tokens.
@@ -166,7 +169,6 @@ async def handle_strava_callback(
         
         logger.info(f"Successfully completed Strava OAuth for user {oauth_state.user_id}")
         
-        # Should we return anything? Idk
         return {
             "success": True,
             "message": "Strava account connected successfully",
