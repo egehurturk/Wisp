@@ -42,6 +42,7 @@ class StravaOAuthManager: NSObject, ObservableObject {
     
     private let logger = Logger.general
     private let keychainService = "com.wisp.strava"
+    private let backendService = BackendStravaService()
     
     // OAuth session state
     private var authSession: ASWebAuthenticationSession?
@@ -62,81 +63,86 @@ class StravaOAuthManager: NSObject, ObservableObject {
     }
     
     private func validateAndRefreshAuthenticationIfNeeded() async {
-        logger.info("🔍 Checking Strava authentication status on app launch" )
+        logger.info("🔍 Checking Strava authentication status via backend")
         
-        // Check if we have any tokens at all
-        guard let accessToken = getSecureToken(key: StravaKeychainKeys.accessToken),
-              !accessToken.isEmpty else {
-            logger.info("❌ No Strava access token found - user needs to authenticate" )
+        // Check with backend service for current connection status
+        do {
+            let status = try await backendService.getStravaConnectionStatus()
+            
+            if status.connected {
+                logger.info("✅ Backend reports Strava connection is active")
+                
+                await MainActor.run {
+                    // Update local state with backend status
+                    self.athleteId = status.athleteId
+                    self.athleteUsername = nil
+                    self.athleteFirstName = status.athleteName
+                    self.athleteLastName = nil
+                    
+                    // Store athlete info locally for consistency
+                    if let athleteId = status.athleteId {
+                        self.storeAthleteInfo(
+                            id: athleteId,
+                            username: nil,
+                            firstName: status.athleteName,
+                            lastName: nil
+                        )
+                    }
+                    
+                    self.isAuthenticated = true
+                    let athleteInfo = status.athleteName ?? "ID: \(status.athleteId ?? 0)"
+                    self.logger.info("✅ User authenticated via backend: \(athleteInfo)")
+                }
+                return
+                
+            } else {
+                logger.info("❌ Backend reports no active Strava connection")
+                await MainActor.run {
+                    self.isAuthenticated = false
+                }
+                return
+            }
+            
+        } catch BackendStravaError.connectionNotFound {
+            logger.info("❌ No Strava connection found on backend")
+            await MainActor.run {
+                self.isAuthenticated = false
+            }
+            return
+            
+        } catch BackendStravaError.unauthorized {
+            logger.warning("❌ Backend authentication failed - user needs to login")
+            await MainActor.run {
+                self.isAuthenticated = false
+            }
+            return
+            
+        } catch {
+            logger.warning("⚠️ Backend connection check failed, falling back to local validation: \(error.localizedDescription)")
+        }
+        
+        // Fallback to local token validation for offline scenarios
+        await validateLocalTokensFallback()
+    }
+    
+    private func validateLocalTokensFallback() async {
+        logger.info("🔄 Falling back to local token validation")
+        
+        // Check if we have athlete info stored locally
+        guard let athleteId = getSecureToken(key: StravaKeychainKeys.athleteId).flatMap({ Int($0) }),
+              athleteId > 0 else {
+            logger.info("❌ No local athlete info found")
             await MainActor.run {
                 self.isAuthenticated = false
             }
             return
         }
         
-        // Check if we have athlete info
-        guard let athleteId = getSecureToken(key: StravaKeychainKeys.athleteId).flatMap({ Int($0) }),
-              athleteId > 0 else {
-            logger.warning("❌ Strava token exists but no athlete info - clearing tokens" )
-            await MainActor.run {
-                self.signOut()
-            }
-            return
-        }
-        
-        // Check token expiration
-        if let expirationDate = getTokenExpiration() {
-            if expirationDate <= Date() {
-                logger.info("⏰ Strava access token has expired, attempting automatic refresh" )
-                
-                // Attempt to refresh the token
-                let refreshSuccessful = await refreshAccessToken()
-                
-                if refreshSuccessful {
-                    logger.info("✅ Strava token refreshed successfully - maintaining authentication" )
-                    await MainActor.run {
-                        self.loadAthleteInfo()
-                        self.isAuthenticated = true
-                        let athleteInfo = self.athleteFirstName.map { "\($0) (ID: \(self.athleteId ?? 0))" } ?? "ID: \(self.athleteId ?? 0)"
-                        self.logger.info("✅ Strava auth status: authenticated as \(athleteInfo)" )
-                    }
-                } else {
-                    logger.warning("❌ Failed to refresh Strava token - user needs to re-authenticate" )
-                    await MainActor.run {
-                        self.signOut() // Clear invalid tokens
-                    }
-                }
-            } else {
-                // Token is still valid
-                let timeUntilExpiry = expirationDate.timeIntervalSinceNow
-                logger.info("✅ Strava access token is valid (expires in \(Int(timeUntilExpiry/60)) minutes)" )
-                await MainActor.run {
-                    self.loadAthleteInfo()
-                    self.isAuthenticated = true
-                    let athleteInfo = self.athleteFirstName.map { "\($0) (ID: \(self.athleteId ?? 0))" } ?? "ID: \(self.athleteId ?? 0)"
-                    self.logger.info("✅ Strava auth status: authenticated as \(athleteInfo)" )
-                }
-            }
-        } else {
-            // No expiration date stored - assume token might be expired and try to refresh
-            logger.warning("⚠️ No expiration date found for Strava token, attempting refresh as precaution" )
-            
-            let refreshSuccessful = await refreshAccessToken()
-            
-            if refreshSuccessful {
-                logger.info("✅ Strava token refresh successful" )
-                await MainActor.run {
-                    self.loadAthleteInfo()
-                    self.isAuthenticated = true
-                    let athleteInfo = self.athleteFirstName.map { "\($0) (ID: \(self.athleteId ?? 0))" } ?? "ID: \(self.athleteId ?? 0)"
-                    self.logger.info("✅ Strava auth status: authenticated as \(athleteInfo)" )
-                }
-            } else {
-                logger.warning("❌ Failed to refresh Strava token without expiration date - user needs to re-authenticate" )
-                await MainActor.run {
-                    self.signOut()
-                }
-            }
+        await MainActor.run {
+            self.loadAthleteInfo()
+            self.isAuthenticated = true
+            let athleteInfo = self.athleteFirstName.map { "\($0) (ID: \(athleteId))" } ?? "ID: \(athleteId)"
+            self.logger.info("✅ Using cached authentication: \(athleteInfo)")
         }
     }
     
@@ -159,524 +165,142 @@ class StravaOAuthManager: NSObject, ObservableObject {
     // MARK: - Secure OAuth Flow
     
     func startAuthorization() {
-        logger.info("Starting Strava OAuth authorization")
+        logger.info("Starting Strava OAuth authorization through backend")
         
-        // Generate PKCE parameters
-        let codeVerifier = generateCodeVerifier()
-        let codeChallenge = generateCodeChallenge(from: codeVerifier)
-        let state = generateState()
+        isLoading = true
+        lastError = nil
         
-        // Store for validation
-        self.currentCodeVerifier = codeVerifier
-        self.currentState = state
-        
-        // Try Strava app first (recommended by Strava)
-        let appAuthURL = buildAppAuthorizationURL(
-            codeChallenge: codeChallenge,
-            state: state
-        )
-        
-        // Check if Strava app is installed
-        if UIApplication.shared.canOpenURL(appAuthURL) {
-            logger.info("Opening Strava app for authentication" )
-            UIApplication.shared.open(appAuthURL, options: [:]) { success in
-                if !success {
-                    Task { @MainActor in
-                        self.fallbackToWebAuth(codeChallenge: codeChallenge, state: state)
+        Task {
+            do {
+                // Step 1: Initiate OAuth with backend
+                let initiateResponse = try await backendService.initiateStravaOAuth()
+                logger.info("Backend OAuth initiated - state: \(initiateResponse.state)")
+                
+                // Step 2: Open OAuth URL
+                guard let authURL = URL(string: initiateResponse.authUrl) else {
+                    throw StravaError.invalidURL
+                }
+                
+                await MainActor.run {
+                    self.openOAuthURL(authURL)
+                }
+                
+                // Step 3: Poll for connection status
+                let connectionStatus = try await backendService.pollForConnection()
+                
+                // Step 4: Update UI with success
+                await MainActor.run {
+                    self.handleBackendAuthSuccess(connectionStatus)
+                }
+                
+            } catch {
+                logger.error("Backend OAuth failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.isLoading = false
+                    if let backendError = error as? BackendStravaError {
+                        self.lastError = .authorizationFailed(backendError.localizedDescription)
+                    } else {
+                        self.lastError = .networkError(error.localizedDescription)
                     }
                 }
             }
-        } else {
-            // Fallback to web authentication
-            fallbackToWebAuth(codeChallenge: codeChallenge, state: state)
         }
     }
     
-    private func fallbackToWebAuth(codeChallenge: String, state: String) {
-        logger.info("Using web authentication session" )
+    // MARK: - Backend OAuth Helpers
+    
+    private func openOAuthURL(_ url: URL) {
+        logger.info("Opening OAuth URL: \(url.absoluteString)")
         
-        let webAuthURL = buildWebAuthorizationURL(
-            codeChallenge: codeChallenge,
-            state: state
-        )
-        
-        logger.info("Using web URL: \(webAuthURL)")
-        logger.info("Using callback scheme: \(Configuration.URLSchemes.main)")
-        
-        authSession = ASWebAuthenticationSession(
-            url: webAuthURL,
-            callbackURLScheme: Configuration.URLSchemes.main
-        ) { [weak self] callbackURL, error in
-            Task { @MainActor in
-                await self?.handleAuthCallback(url: callbackURL, error: error)
+        // Try to open in Strava app first if available
+        if url.scheme == "strava" && UIApplication.shared.canOpenURL(url) {
+            logger.info("Opening in Strava app")
+            UIApplication.shared.open(url, options: [:]) { success in
+                if !success {
+                    self.logger.warning("Failed to open Strava app, trying Safari")
+                    // Fallback to Safari
+                    UIApplication.shared.open(url, options: [:])
+                }
             }
+        } else {
+            // Open in Safari
+            logger.info("Opening in Safari")
+            UIApplication.shared.open(url, options: [:])
+        }
+    }
+    
+    private func handleBackendAuthSuccess(_ status: StravaConnectionStatus) {
+        logger.info("✅ Backend OAuth successful")
+        
+        // Update local state with backend response
+        self.athleteId = status.athleteId
+        self.athleteUsername = nil // Backend doesn't return username yet
+        self.athleteFirstName = status.athleteName // Using name as first name for now
+        self.athleteLastName = nil
+        
+        // Store athlete info locally for consistency with existing keychain logic
+        if let athleteId = status.athleteId {
+            storeAthleteInfo(
+                id: athleteId, 
+                username: nil,
+                firstName: status.athleteName,
+                lastName: nil
+            )
         }
         
-        authSession?.presentationContextProvider = self
-        authSession?.prefersEphemeralWebBrowserSession = false
-        authSession?.start()
-    }
-    
-    // MARK: - URL Building
-    
-    private func buildAppAuthorizationURL(codeChallenge: String, state: String) -> URL {
-        logger.info("App redirect uri: \(Configuration.StravaConstants.redirectURI)")
-        var components = URLComponents(string: Configuration.StravaConstants.appAuthorizationScheme)!
-        components.queryItems = [
-            URLQueryItem(name: "client_id", value: Configuration.StravaConstants.clientID),
-            URLQueryItem(name: "redirect_uri", value: Configuration.StravaConstants.redirectURI),
-            URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "approval_prompt", value: "auto"),
-            URLQueryItem(name: "scope", value: Configuration.StravaConstants.scope),
-            URLQueryItem(name: "state", value: state),
-            URLQueryItem(name: "code_challenge", value: codeChallenge),
-            URLQueryItem(name: "code_challenge_method", value: Configuration.StravaConstants.PKCE.codeChallengeMethod)
-        ]
-        return components.url!
-    }
-    
-    private func buildWebAuthorizationURL(codeChallenge: String, state: String) -> URL {
-        logger.info("App redirect uri: \(Configuration.StravaConstants.redirectURI)")
-        var components = URLComponents(string: Configuration.StravaConstants.mobileAuthorizationEndpoint)!
-        components.queryItems = [
-            URLQueryItem(name: "client_id", value: Configuration.StravaConstants.clientID),
-            URLQueryItem(name: "redirect_uri", value: Configuration.StravaConstants.redirectURI),
-            URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "approval_prompt", value: "auto"),
-            URLQueryItem(name: "scope", value: Configuration.StravaConstants.scope),
-            URLQueryItem(name: "state", value: state),
-            URLQueryItem(name: "code_challenge", value: codeChallenge),
-            URLQueryItem(name: "code_challenge_method", value: Configuration.StravaConstants.PKCE.codeChallengeMethod)
-        ]
-        return components.url!
+        self.isAuthenticated = true
+        self.isLoading = false
+        self.lastError = nil
+        
+        logger.info("Strava authentication complete - athlete: \(status.athleteName ?? "Unknown") (ID: \(status.athleteId ?? 0))")
     }
     
     // MARK: - Callback Handling
     
     func handleOAuthCallback(url: URL) async {
-        await handleAuthCallback(url: url, error: nil)
+        logger.info("⚠️ OAuth callback received - this is no longer used with backend integration")
+        
+        // With backend integration, we don't need to handle callbacks directly
+        // The backend handles the callback and we poll for status instead
+        // This method is kept for compatibility but doesn't process the callback
+        
+        logger.info("OAuth callback ignored - backend handles token exchange automatically")
     }
     
-    private func handleAuthCallback(url: URL?, error: Error?) async {
-        defer {
-            // Clean up session state
-            currentCodeVerifier = nil
-            currentState = nil
-            authSession = nil
-        }
-        
-        if let error = error {
-            logger.info("OAuth callback error")
-            if (error as NSError).code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
-                logger.info("User cancelled OAuth authorization" )
-            }
-            return
-        }
-        
-        guard let url = url else {
-            logger.error("OAuth callback received nil URL" )
-            lastError = .authorizationFailed("No callback URL received")
-            return
-        }
-        
-        logger.info("Processing OAuth callback: \(url.absoluteString)" )
-        
-        // Validate callback URL
-        print("URL: \(url.absoluteString)")
-        guard url.scheme == Configuration.URLSchemes.main else {
-            logger.error("Invalid callback URL scheme: \(url.scheme ?? "nil")" )
-            lastError = .invalidCallback("Invalid URL scheme")
-            return
-        }
-        
-        // Parse callback parameters
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let queryItems = components.queryItems else {
-            logger.error("Failed to parse callback URL components" )
-            lastError = .invalidCallback("Failed to parse callback URL")
-            return
-        }
-        
-        // Check for errors in callback
-        if let error = queryItems.first(where: { $0.name == "error" })?.value {
-            logger.error("OAuth callback contained error: \(error)" )
-            let errorDescription = queryItems.first(where: { $0.name == "error_description" })?.value
-            lastError = .authorizationFailed(errorDescription ?? error)
-            return
-        }
-        
-        // Validate state parameter (CSRF protection)
-        guard let receivedState = queryItems.first(where: { $0.name == "state" })?.value,
-              receivedState == currentState else {
-            logger.error("State parameter mismatch - possible CSRF attack" )
-            lastError = .securityError("State parameter mismatch")
-            return
-        }
-        
-        // Extract authorization code
-        guard let code = queryItems.first(where: { $0.name == "code" })?.value else {
-            logger.error("No authorization code in callback" )
-            lastError = .authorizationFailed("No authorization code received")
-            return
-        }
-        
-        // Extract granted scope
-        let grantedScope = queryItems.first(where: { $0.name == "scope" })?.value
-        logger.info("OAuth authorization successful, granted scope: \(grantedScope ?? "none")" )
-        
-        // Note: In a secure implementation, you would send the code to your backend
-        // The backend would exchange it for tokens using the client secret
-        // For demo purposes, we'll show what the backend call would look like
-        await notifyBackendOfAuthorizationCode(code: code, codeVerifier: currentCodeVerifier!)
-    }
+    // MARK: - Connection Management
     
-    // MARK: - Token Exchange (Development Implementation)
-    
-    private func notifyBackendOfAuthorizationCode(code: String, codeVerifier: String) async {
-        logger.warning("🚨 DEVELOPMENT ONLY: Direct token exchange in mobile app" )
-        logger.warning("⚠️ In production, this should be handled by a secure backend service" )
-        
-        await exchangeCodeForTokens(code: code, codeVerifier: codeVerifier)
-    }
-    
-    private func exchangeCodeForTokens(code: String, codeVerifier: String) async {
-        logger.info("Exchanging authorization code for access tokens" )
-        
-        guard let url = URL(string: Configuration.StravaConstants.tokenEndpoint) else {
-            logger.error("Invalid token endpoint URL" )
-            await MainActor.run {
-                self.lastError = .invalidURL
-            }
-            return
-        }
+    func disconnectStrava() async {
+        logger.info("🔌 Disconnecting Strava account")
         
         isLoading = true
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30.0
-        
-        // Prepare form data
-        let parameters = [
-            "client_id": Configuration.StravaConstants.clientID,
-            "client_secret": Configuration.StravaConstants.clientSecret,
-            "code": code,
-            "grant_type": "authorization_code"
-        ]
-        
-        let formBody = parameters
-            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0.value)" }
-            .joined(separator: "&")
-        
-        request.httpBody = formBody.data(using: .utf8)
-        
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            try await backendService.disconnectStrava()
             
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw StravaError.invalidResponse
+            await MainActor.run {
+                self.signOut()
+                self.isLoading = false
             }
             
-            logger.info("Token exchange response status: \(httpResponse.statusCode)" )
+            logger.info("✅ Successfully disconnected from Strava")
             
-            guard httpResponse.statusCode == 200 else {
-                if httpResponse.statusCode == 400 {
-                    logger.error("Bad request - check client credentials and authorization code" )
-                    throw StravaError.authorizationFailed("Invalid authorization code or client credentials")
-                } else if httpResponse.statusCode == 401 {
-                    logger.error("Unauthorized - invalid client credentials" )
-                    throw StravaError.unauthorized
+        } catch {
+            logger.error("❌ Failed to disconnect from Strava backend: \(error.localizedDescription)")
+            
+            await MainActor.run {
+                self.isLoading = false
+                if let backendError = error as? BackendStravaError {
+                    self.lastError = .networkError(backendError.localizedDescription)
                 } else {
-                    throw StravaError.httpError(httpResponse.statusCode)
+                    self.lastError = .networkError(error.localizedDescription)
                 }
-            }
-            
-            // Parse response
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                logger.error("Failed to parse token response JSON" )
-                throw StravaError.decodingError("Invalid JSON response")
-            }
-            
-            // Extract tokens
-            guard let accessToken = json["access_token"] as? String,
-                  let refreshToken = json["refresh_token"] as? String else {
-                logger.error("Missing tokens in response" )
-                throw StravaError.decodingError("Missing access_token or refresh_token")
-            }
-            
-            // Calculate expiration (Strava tokens expire in 6 hours)
-            let expiresIn = json["expires_in"] as? Int ?? 21600 // Default to 6 hours
-            let expirationDate = Date().addingTimeInterval(TimeInterval(expiresIn))
-            
-            // Extract and store athlete info
-            var athleteId = 0
-            var athleteUsername: String?
-            var athleteFirstName: String?
-            var athleteLastName: String?
-            
-            if let athlete = json["athlete"] as? [String: Any] {
-                athleteId = athlete["id"] as? Int ?? 0
-                athleteUsername = athlete["username"] as? String
-                athleteFirstName = athlete["firstname"] as? String
-                athleteLastName = athlete["lastname"] as? String
                 
-                let displayName = [athleteFirstName, athleteLastName].compactMap { $0 }.joined(separator: " ")
-                let logName = displayName.isEmpty ? (athleteUsername ?? "Unknown") : displayName
-                logger.info("Successfully authenticated athlete: \(logName) (ID: \(athleteId))" )
-            }
-            
-            // Store tokens and athlete info securely
-            await MainActor.run {
-                self.storeSecureToken(token: accessToken, key: StravaKeychainKeys.accessToken)
-                self.storeSecureToken(token: refreshToken, key: StravaKeychainKeys.refreshToken)
-                self.storeTokenExpiration(date: expirationDate)
-                self.storeAthleteInfo(id: athleteId, username: athleteUsername, firstName: athleteFirstName, lastName: athleteLastName)
-                
-                // Update published properties
-                self.athleteId = athleteId
-                self.athleteUsername = athleteUsername
-                self.athleteFirstName = athleteFirstName
-                self.athleteLastName = athleteLastName
-                
-                self.isAuthenticated = true
-                self.isLoading = false
-                self.lastError = nil
-                
-                self.logger.info("Successfully exchanged code for tokens and stored athlete info")
-                self.logger.info("Access token expires at: \(expirationDate)" )
-            }
-            
-        } catch {
-            logger.info("Token exchange failed")
-            await MainActor.run {
-                self.isLoading = false
-                self.lastError = error as? StravaError ?? .networkError(error.localizedDescription)
-            }
-        }
-    }
-    
-    // MARK: - Token Management
-    
-    func refreshAccessToken() async -> Bool {
-        guard let refreshToken = getSecureToken(key: StravaKeychainKeys.refreshToken),
-              !refreshToken.isEmpty else {
-            logger.error("No refresh token available for token refresh" )
-            return false
-        }
-        
-        logger.info("🔄 Refreshing Strava access token..." )
-        
-        let success = await performTokenRefresh(refreshToken: refreshToken)
-        
-        if success {
-            logger.info("✅ Strava access token refreshed successfully" )
-        } else {
-            logger.error("❌ Failed to refresh Strava access token" )
-        }
-        
-        return success
-    }
-    
-    private func performTokenRefresh(refreshToken: String) async -> Bool {
-        logger.warning("🚨 DEVELOPMENT ONLY: Direct token refresh in mobile app" )
-        
-        guard let url = URL(string: Configuration.StravaConstants.tokenEndpoint) else {
-            logger.error("Invalid token endpoint URL" )
-            return false
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30.0
-        
-        // Prepare form data for refresh
-        let parameters = [
-            "client_id": Configuration.StravaConstants.clientID,
-            "client_secret": Configuration.StravaConstants.clientSecret,
-            "grant_type": "refresh_token",
-            "refresh_token": refreshToken
-        ]
-        
-        let formBody = parameters
-            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0.value)" }
-            .joined(separator: "&")
-        
-        request.httpBody = formBody.data(using: .utf8)
-        
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                logger.error("Invalid response type during token refresh" )
-                return false
-            }
-            
-            logger.info("Token refresh response status: \(httpResponse.statusCode)" )
-            
-            guard httpResponse.statusCode == 200 else {
-                if httpResponse.statusCode == 400 || httpResponse.statusCode == 401 {
-                    logger.error("Token refresh failed - refresh token may be expired" )
-                    await MainActor.run {
-                        self.signOut() // Clear invalid tokens
-                    }
-                }
-                return false
-            }
-            
-            // Parse refresh response
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let newAccessToken = json["access_token"] as? String else {
-                logger.error("Failed to parse token refresh response" )
-                return false
-            }
-            
-            // Strava may or may not return a new refresh token
-            let newRefreshToken = json["refresh_token"] as? String ?? refreshToken
-            
-            // Calculate new expiration
-            let expiresIn = json["expires_in"] as? Int ?? 21600 // Default to 6 hours
-            let expirationDate = Date().addingTimeInterval(TimeInterval(expiresIn))
-            
-            // Store new tokens on main actor
-            await MainActor.run {
-                self.storeSecureToken(token: newAccessToken, key: StravaKeychainKeys.accessToken)
-                self.storeSecureToken(token: newRefreshToken, key: StravaKeychainKeys.refreshToken)
-                self.storeTokenExpiration(date: expirationDate)
-            }
-            
-            logger.info("Access token refreshed successfully")
-            logger.info("New token expires at: \(expirationDate)" )
-            
-            return true
-            
-        } catch {
-            logger.info("Token refresh failed")
-            return false
-        }
-    }
-    
-    // MARK: - API Requests
-    
-    func fetchActivities() async {
-        guard isAuthenticated else {
-            logger.warning("Attempted to fetch activities without authentication" )
-            return
-        }
-        
-        isLoading = true
-        lastError = nil
-        
-        // Ensure we have a valid token before making API calls
-        let tokenValidated = await ensureValidToken()
-        guard tokenValidated else {
-            logger.error("Could not obtain valid access token for API request" )
-            await MainActor.run {
-                self.isLoading = false
-                self.lastError = .unauthorized
+                // Still sign out locally even if backend call failed
                 self.signOut()
             }
-            return
-        }
-        
-        guard let accessToken = getSecureToken(key: StravaKeychainKeys.accessToken) else {
-            logger.error("No access token available after validation" )
-            await MainActor.run {
-                self.isLoading = false
-                self.signOut()
-            }
-            return
-        }
-        
-        do {
-            let activities = try await performAPIRequest(accessToken: accessToken)
-            let runs = activities.filter { $0.type == "Run" }
-            
-            await MainActor.run {
-                self.activities = runs
-                self.isLoading = false
-            }
-            
-            logger.info("📊 Fetched \(activities.count) total activities, \(runs.count) are running activities" )
-            
-            // Log activity types for debugging
-            let activityTypes = Dictionary(grouping: activities, by: { $0.type })
-                .mapValues { $0.count }
-                .sorted { $0.value > $1.value }
-            
-            let typeSummary = activityTypes.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
-            logger.info("Activity breakdown: \(typeSummary)" )
-        } catch {
-            await MainActor.run {
-                self.isLoading = false
-                self.lastError = error as? StravaError ?? .networkError(error.localizedDescription)
-            }
-            logger.info("Failed to fetch activities")
         }
     }
     
-    // MARK: - Token Validation Helper
-    
-    private func ensureValidToken() async -> Bool {
-        // Check if token needs refresh (with 5 minute buffer)
-        if let expirationDate = getTokenExpiration() {
-            if expirationDate <= Date().addingTimeInterval(300) { // 5 min buffer
-                logger.info("⏰ Token expires soon, refreshing before API call..." )
-                let refreshed = await refreshAccessToken()
-                if !refreshed {
-                    logger.error("❌ Failed to refresh token before API call" )
-                    return false
-                }
-                logger.info("✅ Token refreshed successfully before API call" )
-            }
-        } else {
-            // No expiration date - try refresh as precaution
-            logger.warning("⚠️ No token expiration date, refreshing as precaution before API call" )
-            let refreshed = await refreshAccessToken()
-            if !refreshed {
-                logger.error("❌ Failed to refresh token without expiration date" )
-                return false
-            }
-        }
-        
-        return true
-    }
-    
-    private func performAPIRequest(accessToken: String) async throws -> [StravaActivity] {
-        // Fetch more activities with pagination parameters
-        // per_page: number of activities per request (max 200)
-        // page: page number (starts at 1)
-        guard let url = URL(string: "https://www.strava.com/api/v3/athlete/activities?per_page=200&page=1") else {
-            throw StravaError.invalidURL
-        }
-        
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 30.0
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw StravaError.invalidResponse
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            if httpResponse.statusCode == 401 {
-                throw StravaError.unauthorized
-            }
-            throw StravaError.httpError(httpResponse.statusCode)
-        }
-        
-        
-        
-        do {
-            return try JSONDecoder().decode([StravaActivity].self, from: data)
-        } catch {
-            throw StravaError.decodingError(error.localizedDescription)
-        }
-    }
     
     // MARK: - Sign Out
     
@@ -695,25 +319,6 @@ class StravaOAuthManager: NSObject, ObservableObject {
         lastError = nil
         
         logger.info("Strava sign out completed")
-    }
-}
-
-// MARK: - PKCE Implementation
-
-extension StravaOAuthManager {
-    
-    private func generateCodeVerifier() -> String {
-        let data = Data((0..<Configuration.StravaConstants.PKCE.codeVerifierLength).map { _ in UInt8.random(in: 0...255) })
-        return data.base64URLEncodedString()
-    }
-    
-    private func generateCodeChallenge(from verifier: String) -> String {
-        let challenge = SHA256.hash(data: verifier.data(using: .utf8)!)
-        return Data(challenge).base64URLEncodedString()
-    }
-    
-    private func generateState() -> String {
-        return UUID().uuidString
     }
 }
 

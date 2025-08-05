@@ -54,6 +54,7 @@ class StravaConstants:
     
     # OAuth Endpoints
     AUTHORIZATION_URL = "https://www.strava.com/oauth/mobile/authorize"
+    MOBILE_AUTHORIZATION_URL = "strava://oauth/mobile/authoriz"
     TOKEN_URL = "https://www.strava.com/oauth/token"
     
     # API Base

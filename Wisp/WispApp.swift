@@ -34,7 +34,7 @@ struct WispApp: App {
                         }
                     } else if url.host == "strava-callback" || url.path.contains("strava-callback") {
                         LoggerAuth.shared.info("🔗 Handling Strava OAuth callback", category: .authentication)
-                        
+                        // TODO: remove these (not required with backend)
                         Task {
                             await StravaOAuthManager.shared.handleOAuthCallback(url: url)
                         }
