@@ -95,6 +95,12 @@ struct SettingsView: View {
                 
                 Spacer()
                 
+                if stravaManager.isValidatingAuth {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .opacity(0.6)
+                }
+                
                 if stravaManager.isAuthenticated {
                     WispButton(
                         title: "Disconnect",
@@ -231,12 +237,8 @@ struct SettingsView: View {
     private func disconnectStrava() async {
         isDisconnectingStrava = true
         
-        do {
-            try await stravaManager.disconnectStrava()
-            logger.info("Successfully disconnected Strava from Settings")
-        } catch {
-            logger.error("Failed to disconnect Strava from Settings: \(error)")
-        }
+        await stravaManager.disconnectStrava()
+        logger.info("Successfully disconnected Strava from Settings")
         
         isDisconnectingStrava = false
         isConnectingToStrava = false

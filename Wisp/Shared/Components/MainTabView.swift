@@ -15,9 +15,6 @@ struct MainTabView: View {
         case runs = "Runs"
         case record = "Record"
         case ghosts = "Ghosts"
-        case statistics = "Statistics"
-        case goals = "Goals"
-        case groups = "Groups"
         case settings = "Settings"
         
         
@@ -27,9 +24,6 @@ struct MainTabView: View {
             case .runs: return "figure.run"
             case .ghosts: return "sparkles"
             case .record: return "record.circle"
-            case .statistics: return "chart.bar"
-            case .goals: return "target"
-            case .groups: return "person.3"
             case .settings: return "gearshape"
             }
         }
@@ -40,9 +34,6 @@ struct MainTabView: View {
             case .runs: return "figure.run"
             case .ghosts: return "sparkles"
             case .record: return "record.circle.fill"
-            case .statistics: return "chart.bar.fill"
-            case .goals: return "target"
-            case .groups: return "person.3.fill"
             case .settings: return "gearshape.fill"
             }
         }
@@ -51,9 +42,6 @@ struct MainTabView: View {
             switch self {
             case .ghosts: return "Ghosts"
             case .record: return "Run"
-            case .statistics: return "Stats"
-            case .goals: return "Goals"
-            case .groups: return "Groups"
             default: return rawValue
             }
         }
@@ -77,9 +65,6 @@ struct MainTabView: View {
                 
                 GhostsView()
                     .tag(Tab.ghosts)
-                
-                GroupsView()
-                    .tag(Tab.groups)
                 
                 SettingsView()
                     .tag(Tab.settings)

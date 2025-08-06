@@ -100,7 +100,7 @@ final class HomeViewModel: ObservableObject {
         
         do {
             // TODO: Replace with actual API call
-            try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
+            // try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
             
             let runs = PastRun.mockData.prefix(3)
             var results = GhostRaceResult.mockData.prefix(3)
@@ -134,7 +134,7 @@ final class HomeViewModel: ObservableObject {
         
         do {
             // TODO: Replace with actual API call
-            try await Task.sleep(nanoseconds: 500_000_000) // Simulate network delay
+            // try await Task.sleep(nanoseconds: 500_000_000) // Simulate network delay
             
             let goals = CustomGoalGhost.mockData.prefix(2)
             customGoals = Array(goals)
@@ -153,7 +153,7 @@ final class HomeViewModel: ObservableObject {
         
         do {
             // TODO: Replace with actual API call
-            try await Task.sleep(nanoseconds: 750_000_000) // Simulate network delay
+            // try await Task.sleep(nanoseconds: 750_000_000) // Simulate network delay
             
             let loadedChallenges = Challenge.mockData.prefix(3)
             challenges = Array(loadedChallenges)

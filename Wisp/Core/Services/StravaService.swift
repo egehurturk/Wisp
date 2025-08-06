@@ -19,6 +19,7 @@ class StravaOAuthManager: NSObject, ObservableObject {
     @Published var activities: [StravaActivity] = []
     @Published var isLoading = false
     @Published var lastError: StravaError?
+    @Published var isValidatingAuth = false
     
     // Authenticated athlete information
     @Published var athleteId: Int?
@@ -51,6 +52,18 @@ class StravaOAuthManager: NSObject, ObservableObject {
     
     private override init() {
         super.init()
+        
+        // Initialize with cached state to prevent UI flickering
+        loadAthleteInfo()
+        self.isAuthenticated = (athleteId != nil)
+        
+        if isAuthenticated {
+            logger.info("🔄 Initialized with cached authentication for athlete ID: \(athleteId ?? 0)")
+        } else {
+            logger.info("🔄 Initialized without cached authentication")
+        }
+        
+        // Validate with backend asynchronously
         checkAuthenticationStatus()
     }
     
@@ -64,6 +77,12 @@ class StravaOAuthManager: NSObject, ObservableObject {
     
     private func validateAndRefreshAuthenticationIfNeeded() async {
         logger.info("🔍 Checking Strava authentication status via backend")
+        
+        let wasAuthenticated = isAuthenticated
+        
+        await MainActor.run {
+            self.isValidatingAuth = true
+        }
         
         // Check with backend service for current connection status
         do {
@@ -90,7 +109,12 @@ class StravaOAuthManager: NSObject, ObservableObject {
                     }
                     
                     self.isAuthenticated = true
+                    self.isValidatingAuth = false
                     let athleteInfo = status.athleteName ?? "ID: \(status.athleteId ?? 0)"
+                    
+                    if wasAuthenticated != self.isAuthenticated {
+                        self.logger.info("🔄 Authentication state changed: \(wasAuthenticated) → \(self.isAuthenticated)")
+                    }
                     self.logger.info("✅ User authenticated via backend: \(athleteInfo)")
                 }
                 return
@@ -98,7 +122,11 @@ class StravaOAuthManager: NSObject, ObservableObject {
             } else {
                 logger.info("❌ Backend reports no active Strava connection")
                 await MainActor.run {
+                    if wasAuthenticated != false {
+                        self.logger.info("🔄 Authentication state changed: \(wasAuthenticated) → false")
+                    }
                     self.isAuthenticated = false
+                    self.isValidatingAuth = false
                 }
                 return
             }
@@ -106,14 +134,22 @@ class StravaOAuthManager: NSObject, ObservableObject {
         } catch BackendStravaError.connectionNotFound {
             logger.info("❌ No Strava connection found on backend")
             await MainActor.run {
+                if wasAuthenticated != false {
+                    self.logger.info("🔄 Authentication state changed: \(wasAuthenticated) → false")
+                }
                 self.isAuthenticated = false
+                self.isValidatingAuth = false
             }
             return
             
         } catch BackendStravaError.unauthorized {
             logger.warning("❌ Backend authentication failed - user needs to login")
             await MainActor.run {
+                if wasAuthenticated != false {
+                    self.logger.info("🔄 Authentication state changed: \(wasAuthenticated) → false")
+                }
                 self.isAuthenticated = false
+                self.isValidatingAuth = false
             }
             return
             
@@ -123,6 +159,10 @@ class StravaOAuthManager: NSObject, ObservableObject {
         
         // Fallback to local token validation for offline scenarios
         await validateLocalTokensFallback()
+        
+        await MainActor.run {
+            self.isValidatingAuth = false
+        }
     }
     
     private func validateLocalTokensFallback() async {
@@ -165,6 +205,15 @@ class StravaOAuthManager: NSObject, ObservableObject {
     // MARK: - Secure OAuth Flow
     
     func startAuthorization() {
+        /*
+                OAuth Flow:
+                    Client --> calls /strava/initiate --> Backend
+                    Client <-- {"auth_url": "...", "state": "...", "expires_at":"..."} <-- Backend
+                    Client --> Safari/App open "auth_url" --> Strava
+                    Client <-- callback "redirect_uri" <-- Strava
+                    Client --> calls /strava/callback --> Backend
+                    Client <-- { "success": "...", "message": "...", "athlete_id": "...", "athlete_name": "...",} <-- Backend
+         */
         isLoading = true
         lastError = nil
         
@@ -181,15 +230,10 @@ class StravaOAuthManager: NSObject, ObservableObject {
                     self.openOAuthURL(authURL)
                 }
                 
-                // Step 3: Poll for connection status
-//                logger.info("Starting polling...")
-//                let connectionStatus = try await backendService.pollForConnection()
-                
-                // Step 4: Update UI with success
-//                await MainActor.run {
-//                    self.handleBackendAuthSuccess(connectionStatus)
-//                }
-                
+                // No need to poll for connection status.
+                // When the athlete grants permission via Strava,
+                // Strava will call the redirect URI, and the client
+                // calls /strava/callback endpoint
             } catch {
                 logger.error("Backend OAuth failed: \(error.localizedDescription)")
                 await MainActor.run {
@@ -315,6 +359,7 @@ class StravaOAuthManager: NSObject, ObservableObject {
             
             logger.info("Backend OAuth completion successful")
             await MainActor.run {
+                // TODO: refactor this
                 // Update local state with backend response
                 self.athleteId = resp.athleteId
                 self.athleteUsername = nil // Backend doesn't return username yet
@@ -611,13 +656,3 @@ extension Data {
             .replacingOccurrences(of: "=", with: "")
     }
 }
-
-
-
-/**
- 
- TODO:
- - Cache strava status --> no need to make an API call to /strava/status in backend, store information in KeyChain or local session storage
- - App improvements?
- 
- */

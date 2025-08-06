@@ -200,7 +200,7 @@ final class RunsViewModel: ObservableObject {
         
         do {
             // TODO: Replace with actual API call
-            try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
+            // try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
             
             // Load extended mock data
             let loadedRuns = PastRun.extendedMockData
