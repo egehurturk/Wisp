@@ -1,4 +1,4 @@
-# ✅ Testing Wisp Backend – Strava OAuth & Supabase Integration
+# Testing Wisp Backend – Strava OAuth & Supabase Integration
 
 This guide walks you through **end-to-end testing** of the Wisp backend’s Strava integration, including:
 
@@ -10,22 +10,20 @@ This guide walks you through **end-to-end testing** of the Wisp backend’s Stra
 
 ---
 
-## 🧩 Prerequisites
+## Prerequisites
 
-- ✅ Supabase project is live
-- ✅ `user_oauth_connections` table exists (see [schema](#supabase-table-check))
-- ✅ Backend server is running (e.g. at `http://localhost:8000`)
-- ✅ A valid Supabase JWT for a user
+- [x] Supabase project is live
+- [x] `user_oauth_connections` table exists (see [schema](#supabase-table-check))
+- [x] Backend server is running (e.g. at `http://localhost:8000`)
+- [x] A valid Supabase JWT for a user
 
 > You can get a test JWT by signing up with Supabase Auth and copying the session token.
 
 ---
 
-## 🧪 Step-by-Step Test Plan
 
----
 
-### 🔐 1. Authenticate Supabase User
+### 1. Authenticate Supabase User
 
 > If you don’t have a JWT yet, create a user via Supabase Auth UI or REST.
 
@@ -50,7 +48,7 @@ This will give the JWT token, under `access_token` in the response.
 
 ---
 
-### 🚦 2. Initiate Strava OAuth
+### 2. Initiate Strava OAuth
 
 **Request:**
 ```bash
@@ -67,11 +65,11 @@ curl -X POST http://localhost:8000/strava/initiate \
 }
 ```
 
-✅ Copy `auth_url` and open it in a browser or on iOS using `Safari`.
+Copy `auth_url` and open it in a browser or on iOS using `Safari`.
 
 ---
 
-### 🔁 3. Complete OAuth in Browser
+### 3. Complete OAuth in Browser
 
 1. Log into your Strava account
 2. Authorize Wisp
@@ -84,7 +82,7 @@ curl -X POST http://localhost:8000/strava/initiate \
 
 ---
 
-### 🔄 4. Manually Simulate Callback (for local testing)
+### 4. Manually Simulate Callback (for local testing)
 
 If testing without redirect URL support, call the callback manually:
 
@@ -108,7 +106,7 @@ curl -X POST http://localhost:8000/strava/callback \
 
 ---
 
-### ✅ 5. Check Strava Connection Status
+### 5. Check Strava Connection Status
 
 ```bash
 curl -X GET http://localhost:8000/strava/status \
@@ -129,7 +127,7 @@ curl -X GET http://localhost:8000/strava/status \
 
 ---
 
-### 🏃 6. Verify Activity Sync
+### 6. Verify Activity Sync
 
 Check that recent runs have been saved in your Supabase `runs` table:
 
@@ -145,7 +143,7 @@ And optionally in `run_routes` if polyline is present.
 
 ---
 
-### ❌ 7. Disconnect Strava
+### 7. Disconnect Strava
 
 ```bash
 curl -X DELETE http://localhost:8000/strava/disconnect \
@@ -168,7 +166,7 @@ SELECT * FROM user_oauth_connections WHERE user_id = '<USER_ID>';
 
 ---
 
-## 🧪 Supabase Table Check
+## Supabase Table Check
 
 Make sure `user_oauth_connections` schema matches:
 
@@ -183,11 +181,10 @@ Make sure `user_oauth_connections` schema matches:
 | connected_at     | timestamp     |
 | metadata         | jsonb         |
 | is_active        | boolean       |
-| ...              |               |
 
 ---
 
-## 🛠 Troubleshooting
+## Troubleshooting
 
 | Problem                            | Solution                                                  |
 |------------------------------------|-----------------------------------------------------------|
@@ -199,7 +196,7 @@ Make sure `user_oauth_connections` schema matches:
 
 ---
 
-## 🔍 Sample Test Session (Quick Recap)
+## Sample Test Session
 
 ```bash
 # 1. Start OAuth
@@ -218,14 +215,3 @@ curl -X GET http://localhost:8000/strava/status -H "Authorization: Bearer <JWT>"
 curl -X DELETE http://localhost:8000/strava/disconnect -H "Authorization: Bearer <JWT>"
 ```
 
----
-
-## ✅ You’re Done!
-
-You've now tested:
-- Strava login
-- Token storage
-- Background syncing
-- Connection status and revocation
-
-🎉 Wisp backend is Strava-ready.

@@ -262,6 +262,22 @@ class SupabaseManager: ObservableObject {
         }
     }
     
+    // Get current user's JWT token for backend API calls
+    func getCurrentUserToken() async -> String? {
+        do {
+            let session = try await client.auth.session
+            return session.accessToken
+        } catch {
+            logger.warning("Failed to get current user token: \(error.localizedDescription)", category: .authentication)
+            return nil
+        }
+    }
+    
+    // Get current user ID
+    var currentUserId: String? {
+        return currentUser?.id.uuidString
+    }
+    
     private func transformError(_ error: Error, email: String, username: String) -> SignUpError {
         let errorMessage = error.localizedDescription.lowercased()
         

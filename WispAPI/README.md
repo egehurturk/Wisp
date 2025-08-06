@@ -249,3 +249,13 @@ Set `DEBUG=True` in environment for detailed error messages and automatic reload
 2. Add tests for new features
 3. Update documentation
 4. Use type hints throughout
+
+
+
+
+
+
+
+# TODO
+
+Analyze swift code. 

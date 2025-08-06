@@ -87,9 +87,6 @@ struct RunCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(.blue.opacity(0.2), lineWidth: 1)
         )
-        .onAppear {
-            logger.info("RunCard appeared for run: \(run.id)")
-        }
     }
     
     // MARK: - Private Methods

@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Strava OAuth Configuration
     strava_client_id: str = ""
     strava_client_secret: str = ""
-    strava_redirect_uri: str = "http://localhost:8000/strava/callback"
+    strava_redirect_uri: str
     
     # External APIs
     weather_api_key: str = ""
@@ -54,6 +54,7 @@ class StravaConstants:
     
     # OAuth Endpoints
     AUTHORIZATION_URL = "https://www.strava.com/oauth/mobile/authorize"
+    MOBILE_AUTHORIZATION_URL = "strava://oauth/mobile/authoriz"
     TOKEN_URL = "https://www.strava.com/oauth/token"
     
     # API Base

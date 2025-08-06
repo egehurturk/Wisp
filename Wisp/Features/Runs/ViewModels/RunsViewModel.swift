@@ -128,7 +128,6 @@ final class RunsViewModel: ObservableObject {
     
     // MARK: - Initialization
     init() {
-        logger.info("RunsViewModel initialized")
         setupBindings()
     }
     
@@ -201,7 +200,7 @@ final class RunsViewModel: ObservableObject {
         
         do {
             // TODO: Replace with actual API call
-            try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
+            // try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
             
             // Load extended mock data
             let loadedRuns = PastRun.extendedMockData
@@ -212,9 +211,6 @@ final class RunsViewModel: ObservableObject {
             
             // Update filtered runs
             updateFilteredRuns()
-            
-            logger.info("Successfully loaded \(allRuns.count) runs")
-            
         } catch {
             logger.error("Failed to load runs", error: error)
             errorMessage = "Failed to load runs. Please try again."

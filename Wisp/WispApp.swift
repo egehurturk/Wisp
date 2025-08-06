@@ -21,7 +21,7 @@ struct WispApp: App {
                     LoggerAuth.shared.info("URL Scheme: \(url.scheme ?? "nil"), Host: \(url.host ?? "nil"), Path: \(url.path)", category: .authentication)
                     
                     // Validate URL scheme
-                    guard url.scheme == "supabaselogindemo" else {
+                    guard url.scheme == "wisp" else {
                         LoggerAuth.shared.warning("Invalid URL scheme received: \(url.scheme ?? "nil")", category: .security)
                         return
                     }
@@ -34,7 +34,6 @@ struct WispApp: App {
                         }
                     } else if url.host == "strava-callback" || url.path.contains("strava-callback") {
                         LoggerAuth.shared.info("🔗 Handling Strava OAuth callback", category: .authentication)
-                        
                         Task {
                             await StravaOAuthManager.shared.handleOAuthCallback(url: url)
                         }

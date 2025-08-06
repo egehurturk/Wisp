@@ -58,14 +58,12 @@ final class HomeViewModel: ObservableObject {
     
     // MARK: - Initialization
     init() {
-        logger.info("HomeViewModel initialized")
     }
     
     // MARK: - Public Methods
     
     /// Load initial data for the home screen
     func loadData() {
-        logger.info("Loading home screen data")
         
         Task {
             await loadPastRuns()
@@ -102,7 +100,7 @@ final class HomeViewModel: ObservableObject {
         
         do {
             // TODO: Replace with actual API call
-            try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
+            // try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
             
             let runs = PastRun.mockData.prefix(3)
             var results = GhostRaceResult.mockData.prefix(3)
@@ -121,9 +119,6 @@ final class HomeViewModel: ObservableObject {
             
             pastRuns = Array(runs)
             ghostResults = Array(results)
-            
-            logger.info("Successfully loaded \(pastRuns.count) past runs")
-            
         } catch {
             logger.error("Failed to load past runs", error: error)
             errorMessage = "Failed to load past runs. Please try again."
@@ -139,13 +134,10 @@ final class HomeViewModel: ObservableObject {
         
         do {
             // TODO: Replace with actual API call
-            try await Task.sleep(nanoseconds: 500_000_000) // Simulate network delay
+            // try await Task.sleep(nanoseconds: 500_000_000) // Simulate network delay
             
             let goals = CustomGoalGhost.mockData.prefix(2)
             customGoals = Array(goals)
-            
-            logger.info("Successfully loaded \(customGoals.count) custom goals")
-            
         } catch {
             logger.error("Failed to load custom goals", error: error)
             errorMessage = "Failed to load training goals. Please try again."
@@ -161,13 +153,10 @@ final class HomeViewModel: ObservableObject {
         
         do {
             // TODO: Replace with actual API call
-            try await Task.sleep(nanoseconds: 750_000_000) // Simulate network delay
+            // try await Task.sleep(nanoseconds: 750_000_000) // Simulate network delay
             
             let loadedChallenges = Challenge.mockData.prefix(3)
             challenges = Array(loadedChallenges)
-            
-            logger.info("Successfully loaded \(challenges.count) challenges")
-            
         } catch {
             logger.error("Failed to load challenges", error: error)
             errorMessage = "Failed to load challenges. Please try again."
