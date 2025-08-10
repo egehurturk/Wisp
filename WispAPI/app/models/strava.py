@@ -4,7 +4,7 @@ Strava OAuth and API data models
 Pydantic models for Strava authentication and API responses.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasPath
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -76,7 +76,12 @@ class StravaActivity(BaseModel):
     calories: Optional[float] = None
     start_latlng: Optional[list] = None
     end_latlng: Optional[list] = None
-    polyline: Optional[str] = None
+
+     # Pull from data["map"]["summary_polyline"], but keep the field name "polyline"
+    polyline: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasPath("map", "summary_polyline"),
+    )
 
 # Status and Management Models
 

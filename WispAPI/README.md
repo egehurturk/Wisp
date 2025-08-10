@@ -49,7 +49,12 @@ FastAPI backend service for the Wisp running app, handling Strava OAuth, analyti
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-6. **Visit API documentation**:
+6. **Tunnel via NGROK**:
+   ```bash
+   ngrok http --url=picked-maximum-earwig.ngrok-free.app localhost:8000
+   ```
+
+7. **Visit API documentation**:
    - Swagger UI: http://localhost:8000/docs
    - ReDoc: http://localhost:8000/redoc
 

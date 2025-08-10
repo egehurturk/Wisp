@@ -12,6 +12,7 @@ from typing import List, Optional, Dict, Any
 from ..config import get_settings, StravaConstants
 from ..utils.supabase_client import get_supabase_admin_client
 from ..models.strava import StravaActivity, StravaAthlete
+from ..utils.coordinates import decode_polyline
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -158,9 +159,8 @@ class StravaService:
                     raise Exception(f"API request failed with status {response.status_code}")
                 
                 activities_data = response.json()
-                logger.info(activities_data)
-                activities = [StravaActivity(**activity) for activity in activities_data]
-                
+                activities = [StravaActivity.model_validate(a) for a in activities_data]
+                print(activities)
                 # Filter for runs (matching your Swift filtering)
                 runs = [activity for activity in activities if activity.type == "Run"]
                 print("Got runs...")
@@ -177,9 +177,7 @@ class StravaService:
         """Sync recent activities and store in database"""
         try:
             activities = await self.fetch_athlete_activities(user_id, per_page=limit)
-            
-            for activity in activities:
-                await self._store_activity_in_database(user_id, activity)
+            await self._store_activities_in_database(user_id, activities)
             
             logger.info(f"Synced {len(activities)} activities for user {user_id}")
             
@@ -187,67 +185,70 @@ class StravaService:
             logger.error(f"Activity sync failed for user {user_id}: {e}")
             raise
     
-    async def _store_activity_in_database(self, user_id: str, activity: StravaActivity):
+    async def _store_activities_in_database(self, user_id: str, activities: list[StravaActivity]):
         """Store Strava activity in runs table"""
         try:
             # Convert Strava activity to run data
-            run_data = {
-                "user_id": user_id,
-                "external_id": str(activity.id),
-                "data_source": "strava",
-                "title": activity.name,
-                "description": activity.description,
-                "distance": activity.distance,
-                "moving_time": activity.moving_time,
-                "elapsed_time": activity.elapsed_time,
-                "average_speed": activity.average_speed,
-                "average_cadence": activity.average_cadence,
-                "average_heart_rate": activity.average_heartrate,
-                "max_heart_rate": activity.max_heartrate,
-                "calories_burned": int(activity.calories) if activity.calories else None,
-                "elevation_gain": activity.total_elevation_gain,
-                "started_at": activity.start_date,
-                "timezone": activity.timezone
-            }
-            
-            # Handle GPS coordinates
-            if activity.start_latlng and len(activity.start_latlng) >= 2:
-                run_data["start_latitude"] = activity.start_latlng[0]
-                run_data["start_longitude"] = activity.start_latlng[1]
-            
-            if activity.end_latlng and len(activity.end_latlng) >= 2:
-                run_data["end_latitude"] = activity.end_latlng[0]
-                run_data["end_longitude"] = activity.end_latlng[1]
-            
-            # Calculate average pace (seconds per kilometer)
-            if activity.distance > 0:
-                run_data["average_pace"] = activity.moving_time / (activity.distance / 1000)
+            run_data = [{
+                    "user_id": user_id,
+                    "external_id": str(activity.id),
+                    "data_source": "strava",
+                    "title": activity.name,
+                    "description": activity.description,
+                    "distance": activity.distance,
+                    "moving_time": activity.moving_time,
+                    "elapsed_time": activity.elapsed_time,
+                    "average_speed": activity.average_speed,
+                    "average_pace": activity.moving_time / (activity.distance / 1000),
+                    "average_cadence": activity.average_cadence,
+                    "average_heart_rate": activity.average_heartrate,
+                    "max_heart_rate": activity.max_heartrate,
+                    "calories_burned": int(activity.calories) if activity.calories else None,
+                    "elevation_gain": activity.total_elevation_gain,
+                    "started_at": activity.start_date,
+                    "start_latitude": activity.start_latlng[0],
+                    "start_longitude": activity.start_latlng[1],
+                    "end_latitude": activity.end_latlng[0],
+                    "end_longitude": activity.end_latlng[1],
+                    "timezone": activity.timezone,
+                    "heart_rate_data": {}
+                } 
+                for activity in activities]
             
             # Use upsert to handle existing activities
-            self.supabase.table("runs").upsert(
-                run_data,
-                on_conflict="user_id,external_id"
-            ).execute()
-            
+            response = (
+                self.supabase.table("runs").upsert(
+                    run_data,
+                    on_conflict="user_id,data_source,external_id"
+                ).execute()
+            )
+
+            lookup = {str(item["external_id"]): item for item in response.data}
+            poly_data = [
+                [lookup[str(activity.id)]["id"], activity.polyline]
+                for activity in activities
+                if str(activity.id) in lookup
+            ]
             # Store route data if available
-            if activity.polyline:
-                await self._store_route_data(run_data.get("id"), activity.polyline)
+            await self._store_route_data(poly_data)
             
         except Exception as e:
-            logger.error(f"Failed to store activity {activity.id} for user {user_id}: {e}")
+            logger.error(f"Failed to store activities for user {user_id}: {e}")
     
-    async def _store_route_data(self, run_id: str, polyline: str):
+    async def _store_route_data(self, upsert_data):
+
+    # {'id': '57003a6b-0989-44bf-83d1-0b148c0f0ec7', 'user_id': 'ba832ece-1081-4189-9f76-4e653e90b916', 'external_id': '15394323057', 'data_source': 'strava', 'title': 'Ultramarathon', 'description': None, 'distance': 2008.5, 'moving_time': 741, 'elapsed_time': 1182, 'average_pace': 368.93, 'average_speed': 2.71, 'average_cadence': None, 'average_heart_rate': None, 'max_heart_rate': None, 'calories_burned': None, 'start_latitude': 37.0, 'start_longitude': 26.94, 'end_latitude': 36.99, 'end_longitude': 26.93, 'elevation_gain': 20.9, 'started_at': '2025-08-09T04:31:04', 'timezone': '(GMT+02:00) Europe/Athens', 'pace_splits': None, 'heart_rate_data': {}, 'created_at': '2025-08-10T15:00:58.058736', 'updated_at': '2025-08-10T15:00:58.058736'}
         """Store route polyline data"""
-        try:
-            if not run_id:
-                return
-                
-            route_data = {
-                "run_id": run_id,
-                "encoded_polyline": polyline,
-                "coordinates": [],  # Polyline decode would go here
+        try:    
+            route_data = [
+                {
+                "run_id": polys[0],
+                "encoded_polyline": polys[1],
+                "coordinates": decode_polyline(polys[1]), 
                 "total_points": 0
-            }
+                }
+                  for polys in upsert_data
+            ]
             
             self.supabase.table("run_routes").upsert(
                 route_data,
@@ -255,9 +256,7 @@ class StravaService:
             ).execute()
             
         except Exception as e:
-            logger.error(f"Failed to store route data for run {run_id}: {e}")
+            logger.error(f"Failed to store route data for run {0}: {e}")
 
 # TODO:
-#   * Change for run in runs -> store run db TO bulk insertion
-#   * Inspect Strava RUn type to see if it matches db
-#   * Log issues?
+#       Strava API error. When disconnect and try to connect again, on strava app it gives error. Inspect that.
