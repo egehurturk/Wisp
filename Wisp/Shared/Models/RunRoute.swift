@@ -53,6 +53,54 @@ struct RunRoute: Identifiable, Codable, Equatable {
         case totalPoints = "total_points"
         case createdAt = "created_at"
     }
+    
+    static func decodePolyline(_ encoded: String) -> [CLLocationCoordinate2D] {
+        var coords: [CLLocationCoordinate2D] = []
+        coords.reserveCapacity(encoded.count / 4)
+
+        let bytes = Array(encoded.utf8)
+        var index = 0
+        var lat = 0
+        var lon = 0
+
+        while index < bytes.count {
+            // Decode latitude
+            var result = 0
+            var shift = 0
+            var byte: UInt8
+            repeat {
+                byte = bytes[index] &- 63
+                index += 1
+                result |= Int(byte & 0x1F) << shift
+                shift += 5
+            } while byte >= 0x20
+
+            let deltaLat = (result & 1) != 0 ? ~(result >> 1) : (result >> 1)
+            lat &+= deltaLat
+
+            // Decode longitude
+            result = 0
+            shift = 0
+            repeat {
+                byte = bytes[index] &- 63
+                index += 1
+                result |= Int(byte & 0x1F) << shift
+                shift += 5
+            } while byte >= 0x20
+
+            let deltaLon = (result & 1) != 0 ? ~(result >> 1) : (result >> 1)
+            lon &+= deltaLon
+
+            let coordinate = CLLocationCoordinate2D(
+                latitude:  Double(lat) / 1e5,
+                longitude: Double(lon) / 1e5
+            )
+            coords.append(coordinate)
+        }
+
+        return coords
+    }
+
 }
 
 extension RunRoute {

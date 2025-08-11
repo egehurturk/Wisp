@@ -162,8 +162,3 @@ private struct StatView: View {
 
 
 
-
-
-// TODO:
-//  Poly lines are rendered incorrectly. Either do not render coordinates, custom decode the polyline and render it, or render the coordinates.
-// 

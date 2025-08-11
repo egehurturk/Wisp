@@ -14,23 +14,7 @@ struct RunMapView: View {
     var body: some View {
         Group {
             if let route = route, !route.coordinates.isEmpty {
-                Map(coordinateRegion: .constant(route.region), 
-                    interactionModes: [], // Disable interaction for card view
-                    showsUserLocation: showsUserLocation,
-                    annotationItems: routeAnnotations) { annotation in
-                    MapAnnotation(coordinate: annotation.coordinate) {
-                        if annotation.isStart {
-                            StartMarker()
-                        } else {
-                            EndMarker()
-                        }
-                    }
-                }
-                .overlay(
-                    // Simple route path overlay
-                    RoutePathView(coordinates: route.clLocationCoordinates, region: route.region)
-                        .allowsHitTesting(false)
-                )
+                RouteMapPolyline(coordinates: RunRoute.decodePolyline(route.encodedPolyline!))
             } else {
                 // Fallback when no route data
                 RoundedRectangle(cornerRadius: 12)
@@ -54,38 +38,82 @@ struct RunMapView: View {
         }
     }
     
-    // Computed property for route annotations
-    private var routeAnnotations: [MapRouteMarker] {
-        guard let route = route, !route.coordinates.isEmpty else { return [] }
-        
-        var annotations: [MapRouteMarker] = []
-        
-        // Add start annotation
-        if let startCoord = route.coordinates.first {
-            annotations.append(MapRouteMarker(
-                coordinate: startCoord.clLocationCoordinate2D,
-                isStart: true
-            ))
+//    // Computed property for route annotations
+//    private var routeAnnotations: [MapRouteMarker] {
+//        guard let route = route, !route.coordinates.isEmpty else { return [] }
+//        
+//        var annotations: [MapRouteMarker] = []
+//        
+//        // Add start annotation
+//        if let startCoord = route.coordinates.first {
+//            annotations.append(MapRouteMarker(
+//                coordinate: startCoord.clLocationCoordinate2D,
+//                isStart: true
+//            ))
+//        }
+//        
+//        // Add end annotation if different from start
+//        if let endCoord = route.coordinates.last, route.coordinates.count > 1 {
+//            annotations.append(MapRouteMarker(
+//                coordinate: endCoord.clLocationCoordinate2D,
+//                isStart: false
+//            ))
+//        }
+//        
+//        return annotations
+//    }
+}
+
+struct RouteMapPolyline: View {
+    let coordinates: [CLLocationCoordinate2D]
+    var interaction: MapInteractionModes = []       // like your old code
+    var lineWidth: CGFloat = 4
+
+    @State private var camera: MapCameraPosition = .automatic
+
+    init(coordinates: [CLLocationCoordinate2D],
+         interaction: MapInteractionModes = [.all],
+         lineWidth: CGFloat = 4) {
+        self.coordinates = coordinates
+        self.interaction = interaction
+        self.lineWidth = lineWidth
+        // Seed the camera to fit the route
+        _camera = State(initialValue: .region(regionToFit(coordinates)))
+    }
+
+    
+    private func regionToFit(_ coords: [CLLocationCoordinate2D], pad: CLLocationDegrees = 0.01) -> MKCoordinateRegion {
+        guard let first = coords.first else {
+            return MKCoordinateRegion(center: .init(latitude: 0, longitude: 0),
+                                      span: .init(latitudeDelta: 180, longitudeDelta: 360))
         }
-        
-        // Add end annotation if different from start
-        if let endCoord = route.coordinates.last, route.coordinates.count > 1 {
-            annotations.append(MapRouteMarker(
-                coordinate: endCoord.clLocationCoordinate2D,
-                isStart: false
-            ))
+        var minLat = first.latitude,  maxLat = first.latitude
+        var minLon = first.longitude, maxLon = first.longitude
+        for c in coords {
+            minLat = min(minLat, c.latitude);  maxLat = max(maxLat, c.latitude)
+            minLon = min(minLon, c.longitude); maxLon = max(maxLon, c.longitude)
         }
-        
-        return annotations
+        let center = CLLocationCoordinate2D(latitude: (minLat+maxLat)/2, longitude: (minLon+maxLon)/2)
+        let span = MKCoordinateSpan(latitudeDelta: (maxLat-minLat)+pad, longitudeDelta: (maxLon-minLon)+pad)
+        return MKCoordinateRegion(center: center, span: span)
+    }
+
+    
+    var body: some View {
+        Map(position: $camera, interactionModes: interaction) {
+            Annotation("Start", coordinate: coordinates.first!) {
+                StartMarker()
+            }
+            Annotation("End", coordinate: coordinates.last!) {
+                EndMarker()
+            }
+            MapPolyline(coordinates: coordinates)
+                .stroke(.blue, lineWidth: lineWidth)
+        }
+        .allowsHitTesting(false) // same behavior as your overlay
     }
 }
 
-/// Map route marker model for MapKit (renamed to avoid conflict with ActiveRunView.RouteAnnotation)
-private struct MapRouteMarker: Identifiable {
-    let id = UUID()
-    let coordinate: CLLocationCoordinate2D
-    let isStart: Bool
-}
 
 /// Start marker for route visualization
 private struct StartMarker: View {
@@ -122,46 +150,5 @@ private struct EndMarker: View {
                 .font(.system(size: 8, weight: .bold))
                 .foregroundColor(.white)
         }
-    }
-}
-
-/// Simplified route path visualization
-private struct RoutePathView: View {
-    let coordinates: [CLLocationCoordinate2D]
-    let region: MKCoordinateRegion
-    
-    var body: some View {
-        GeometryReader { geometry in
-            Path { path in
-                guard coordinates.count > 1 else { return }
-                
-                // Convert first coordinate to view point
-                if let firstPoint = coordinateToPoint(coordinates[0], in: geometry.size, for: region) {
-                    path.move(to: firstPoint)
-                    
-                    // Add lines to subsequent coordinates
-                    for coordinate in coordinates.dropFirst() {
-                        if let point = coordinateToPoint(coordinate, in: geometry.size, for: region) {
-                            path.addLine(to: point)
-                        }
-                    }
-                }
-            }
-            .stroke(.blue, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-            .opacity(0.7)
-        }
-    }
-    
-    // Convert geographic coordinate to view point
-    private func coordinateToPoint(_ coordinate: CLLocationCoordinate2D, in size: CGSize, for region: MKCoordinateRegion) -> CGPoint? {
-        let deltaLat = region.span.latitudeDelta
-        let deltaLon = region.span.longitudeDelta
-        
-        guard deltaLat > 0 && deltaLon > 0 else { return nil }
-        
-        let x = (coordinate.longitude - (region.center.longitude - deltaLon/2)) / deltaLon * size.width
-        let y = ((region.center.latitude + deltaLat/2) - coordinate.latitude) / deltaLat * size.height
-        
-        return CGPoint(x: x, y: y)
     }
 }
