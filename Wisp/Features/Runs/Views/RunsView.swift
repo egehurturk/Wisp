@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 /// Runs screen displaying past run history with Strava-like card layout
 struct RunsView: View {
@@ -81,31 +82,59 @@ struct RunsView: View {
         }
     }
     
-    // MARK: - Header Stats View
+    // MARK: - Header Stats View with Chart
     private var headerStatsView: some View {
-        HStack(spacing: 24) {
-            StatCard(
-                title: "Total Runs",
-                value: "\(viewModel.runCount)",
-                icon: "figure.run",
-                color: .blue
-            )
+        VStack(alignment: .leading, spacing: 16) {
+            // Chart title
+            Text("Last 7 Days")
+                .font(.headline)
+                .foregroundColor(.primary)
             
-            StatCard(
-                title: "Distance",
-                value: viewModel.totalDistance,
-                icon: "location",
-                color: .green
-            )
+            // Chart
+            Chart(viewModel.weeklyChartData) { data in
+                BarMark(
+                    x: .value("Day", data.dayName),
+                    y: .value("Distance", data.distance)
+                )
+                .foregroundStyle(.blue.gradient)
+                .cornerRadius(4)
+            }
+            .frame(height: 120)
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisValueLabel {
+                        if let distance = value.as(Double.self) {
+                            Text("\(distance, specifier: "%.1f")")
+                        }
+                    }
+                    AxisGridLine()
+                    AxisTick()
+                }
+            }
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisValueLabel()
+                    AxisTick()
+                }
+            }
+            .chartYAxisLabel("Distance (km)", position: .leading)
             
-            StatCard(
-                title: "Time",
-                value: viewModel.totalDuration,
-                icon: "clock",
-                color: .orange
-            )
+            // Summary stats below chart
+            HStack(spacing: 16) {
+                Text("Runs: \(viewModel.runCount)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text("Distance: \(viewModel.totalDistance)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text("Time: \(viewModel.totalDuration)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
-        .padding(.vertical, 12)
+        .padding()
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(.ultraThinMaterial)
@@ -239,14 +268,8 @@ struct RunsView: View {
         ScrollView {
             LazyVStack(spacing: 16) {
                 ForEach(viewModel.filteredAndSortedRuns) { run in
-                    DetailedRunCard(
-                        run: run,
-                        ghostResult: viewModel.getGhostResult(for: run),
-                        onTitleEdit: { newTitle in
-                            viewModel.updateRunTitle(for: run, newTitle: newTitle)
-                        }
-                    )
-                    .padding(.horizontal)
+                    RunCard(run: run)
+                        .padding(.horizontal)
                 }
             }
             .padding(.vertical, 8)

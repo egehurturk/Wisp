@@ -160,7 +160,7 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Past Runs Section
+    // MARK: - Latest Run Section
     private var pastRunsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -169,7 +169,7 @@ struct HomeView: View {
                         .font(.title3)
                         .foregroundColor(.blue)
                     
-                    Text("Past Runs")
+                    Text("Latest Run")
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
@@ -189,16 +189,23 @@ struct HomeView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity)
                     .padding()
-            } else if viewModel.pastRuns.isEmpty {
+            } else if let latestRun = viewModel.latestRun {
+                VStack(alignment: .leading, spacing: 12) {
+                    RunCard(run: latestRun)
+                    
+                    // Analysis text
+                    Text(viewModel.analysisText)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                }
+            } else {
                 EmptyStateView(
                     title: "No runs yet",
-                    message: "Start your first run to see it here!",
+                    message: "Ready for your first run?",
                     icon: "figure.run"
                 )
-            } else {
-                ForEach(Array(zip(viewModel.pastRuns, viewModel.ghostResults)), id: \.0.id) { run, ghostResult in
-                    RunCard(run: run, ghostResult: ghostResult)
-                }
             }
         }
     }

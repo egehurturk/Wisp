@@ -6,8 +6,8 @@ import Combine
 final class HomeViewModel: ObservableObject {
     
     // MARK: - Published Properties
-    @Published var pastRuns: [PastRun] = []
-    @Published var ghostResults: [GhostRaceResult] = []
+    @Published var latestRun: Run?
+    @Published var analysisText: String = "Nice run! Keep it up."
     @Published var customGoals: [CustomGoalGhost] = []
     @Published var challenges: [Challenge] = []
     @Published var isLoadingRuns: Bool = false
@@ -17,6 +17,7 @@ final class HomeViewModel: ObservableObject {
     
     // MARK: - Properties
     private let logger = Logger.ui
+    private let supabaseManager = SupabaseManager.shared
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
@@ -66,7 +67,7 @@ final class HomeViewModel: ObservableObject {
     func loadData() {
         
         Task {
-            await loadPastRuns()
+            await loadLatestRun()
             await loadCustomGoals()
             await loadChallenges()
         }
@@ -78,7 +79,7 @@ final class HomeViewModel: ObservableObject {
         
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
-                await self.loadPastRuns()
+                await self.loadLatestRun()
             }
             
             group.addTask {
@@ -93,35 +94,33 @@ final class HomeViewModel: ObservableObject {
     
     // MARK: - Private Methods
     
-    /// Load past runs with ghost results
-    private func loadPastRuns() async {
+    /// Load latest run for home screen
+    private func loadLatestRun() async {
         isLoadingRuns = true
         errorMessage = nil
         
         do {
-            // TODO: Replace with actual API call
-            // try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
-            
-            let runs = PastRun.mockData.prefix(3)
-            var results = GhostRaceResult.mockData.prefix(3)
-            
-            // Associate ghost results with specific runs
-            for (index, run) in runs.enumerated() {
-                if index < results.count {
-                    results[index] = GhostRaceResult(
-                        runId: run.id,
-                        ghostName: results[index].ghostName,
-                        didWin: results[index].didWin,
-                        timeDifference: results[index].timeDifference
-                    )
-                }
+            guard let userId = supabaseManager.currentUser?.id else {
+                logger.warning("No authenticated user found when loading latest run")
+                isLoadingRuns = false
+                return
             }
             
-            pastRuns = Array(runs)
-            ghostResults = Array(results)
+            latestRun = try await supabaseManager.fetchLatestRun(for: userId)
+            
+            // For now, use hardcoded analysis text as requested
+            // Future: compute analysis from run data and recent runs
+            analysisText = "Nice run! Keep it up."
+            
+            if latestRun != nil {
+                logger.info("Successfully loaded latest run for home screen")
+            } else {
+                logger.info("No runs found for user")
+                analysisText = "Ready for your first run?"
+            }
         } catch {
-            logger.error("Failed to load past runs", error: error)
-            errorMessage = "Failed to load past runs. Please try again."
+            logger.error("Failed to load latest run", error: error)
+            errorMessage = "Failed to load recent runs. Please try again."
         }
         
         isLoadingRuns = false

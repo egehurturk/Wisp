@@ -1,13 +1,25 @@
 import Foundation
 import Combine
 
+struct DailyDistance: Identifiable {
+    let id = UUID()
+    let date: Date
+    let distance: Double // in kilometers
+    
+    var dayName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date)
+    }
+}
+
 /// View model for the Runs screen displaying past run history
 @MainActor
 final class RunsViewModel: ObservableObject {
     
     // MARK: - Published Properties
-    @Published var runs: [PastRun] = []
-    @Published var ghostResults: [GhostRaceResult] = []
+    @Published var runs: [Run] = []
+    @Published var weeklyChartData: [DailyDistance] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var searchText: String = ""
@@ -16,9 +28,9 @@ final class RunsViewModel: ObservableObject {
     
     // MARK: - Properties
     private let logger = Logger.ui
+    private let supabaseManager = SupabaseManager.shared
     private var cancellables = Set<AnyCancellable>()
-    private var allRuns: [PastRun] = []
-    private var allGhostResults: [GhostRaceResult] = []
+    private var allRuns: [Run] = []
     
     // MARK: - Sorting and Filtering Options
     enum SortOption: String, CaseIterable {
@@ -50,14 +62,14 @@ final class RunsViewModel: ObservableObject {
     }
     
     // MARK: - Computed Properties
-    var filteredAndSortedRuns: [PastRun] {
+    var filteredAndSortedRuns: [Run] {
         var filtered = allRuns
         
         // Apply search filter
         if !searchText.isEmpty {
             filtered = filtered.filter { run in
-                run.generatedTitle.localizedCaseInsensitiveContains(searchText) ||
-                run.location.localizedCaseInsensitiveContains(searchText)
+                (run.title?.localizedCaseInsensitiveContains(searchText) ?? false) ||
+                (run.description?.localizedCaseInsensitiveContains(searchText) ?? false)
             }
         }
         
@@ -65,41 +77,38 @@ final class RunsViewModel: ObservableObject {
         switch selectedFilterOption {
         case .all:
             break
-        case .won:
-            let wonRunIds = allGhostResults.filter { $0.didWin }.map { $0.runId }
-            filtered = filtered.filter { wonRunIds.contains($0.id) }
-        case .lost:
-            let lostRunIds = allGhostResults.filter { !$0.didWin }.map { $0.runId }
-            filtered = filtered.filter { lostRunIds.contains($0.id) }
+        case .won, .lost:
+            // TODO: Implement ghost result filtering when ghost results are available
+            break
         case .thisWeek:
             let oneWeekAgo = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: Date()) ?? Date()
-            filtered = filtered.filter { $0.date >= oneWeekAgo }
+            filtered = filtered.filter { $0.startedAt >= oneWeekAgo }
         case .thisMonth:
             let oneMonthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-            filtered = filtered.filter { $0.date >= oneMonthAgo }
+            filtered = filtered.filter { $0.startedAt >= oneMonthAgo }
         case .thisYear:
             let oneYearAgo = Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date()
-            filtered = filtered.filter { $0.date >= oneYearAgo }
+            filtered = filtered.filter { $0.startedAt >= oneYearAgo }
         }
         
         // Apply sorting
         switch selectedSortOption {
         case .dateDescending:
-            filtered.sort { $0.date > $1.date }
+            filtered.sort { $0.startedAt > $1.startedAt }
         case .dateAscending:
-            filtered.sort { $0.date < $1.date }
+            filtered.sort { $0.startedAt < $1.startedAt }
         case .distanceDescending:
             filtered.sort { $0.distance > $1.distance }
         case .distanceAscending:
             filtered.sort { $0.distance < $1.distance }
         case .durationDescending:
-            filtered.sort { $0.duration > $1.duration }
+            filtered.sort { $0.movingTime > $1.movingTime }
         case .durationAscending:
-            filtered.sort { $0.duration < $1.duration }
+            filtered.sort { $0.movingTime < $1.movingTime }
         case .paceAscending:
-            filtered.sort { $0.averagePace < $1.averagePace }
+            filtered.sort { ($0.averagePace ?? Double.greatestFiniteMagnitude) < ($1.averagePace ?? Double.greatestFiniteMagnitude) }
         case .paceDescending:
-            filtered.sort { $0.averagePace > $1.averagePace }
+            filtered.sort { ($0.averagePace ?? 0) > ($1.averagePace ?? 0) }
         }
         
         return filtered
@@ -120,7 +129,7 @@ final class RunsViewModel: ObservableObject {
     }
     
     var totalDuration: String {
-        let total = allRuns.reduce(0) { $0 + $1.duration }
+        let total = allRuns.reduce(into: 0) { $0 + $1.movingTime }
         let hours = Int(total) / 3600
         let minutes = Int(total) % 3600 / 60
         return String(format: "%dh %dm", hours, minutes)
@@ -148,27 +157,12 @@ final class RunsViewModel: ObservableObject {
         await loadRunsData()
     }
     
-    /// Get ghost result for a specific run
-    func getGhostResult(for run: PastRun) -> GhostRaceResult? {
-        return allGhostResults.first { $0.runId == run.id }
-    }
-    
     /// Update run title
-    func updateRunTitle(for run: PastRun, newTitle: String) {
-        logger.info("Updating run title for run \(run.id)")
+    func updateRunTitle(for runId: UUID, newTitle: String) {
+        logger.info("Updating run title for run \(runId)")
         
-        // Find the run in allRuns and update it
-        if let index = allRuns.firstIndex(where: { $0.id == run.id }) {
-            allRuns[index].updateTitle(newTitle)
-            
-            // Update the published runs array
-            if let filteredIndex = runs.firstIndex(where: { $0.id == run.id }) {
-                runs[filteredIndex].updateTitle(newTitle)
-            }
-            
-            // TODO: Persist the change to backend
-            logger.info("Run title updated successfully")
-        }
+        // TODO: Implement run title update in backend
+        logger.info("Run title update not yet implemented")
     }
     
     /// Clear search and filters
@@ -199,24 +193,52 @@ final class RunsViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            // TODO: Replace with actual API call
-            // try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate network delay
+            guard let userId = supabaseManager.currentUser?.id else {
+                logger.warning("No authenticated user found when loading runs")
+                isLoading = false
+                return
+            }
             
-            // Load extended mock data
-            let loadedRuns = PastRun.extendedMockData
-            let loadedGhostResults = GhostRaceResult.extendedMockData
+            // Load all runs for the user
+            allRuns = try await supabaseManager.fetchRuns(for: userId)
             
-            allRuns = loadedRuns
-            allGhostResults = loadedGhostResults
+            // Generate weekly chart data for last 7 days
+            weeklyChartData = generateWeeklyChartData(from: allRuns)
             
             // Update filtered runs
             updateFilteredRuns()
+            
+            logger.info("Successfully loaded \(allRuns.count) runs")
         } catch {
             logger.error("Failed to load runs", error: error)
             errorMessage = "Failed to load runs. Please try again."
         }
         
         isLoading = false
+    }
+    
+    private func generateWeeklyChartData(from runs: [Run]) -> [DailyDistance] {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Create data for last 7 days (including today)
+        var chartData: [DailyDistance] = []
+        
+        for dayOffset in (0..<7).reversed() {
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) else { continue }
+            
+            // Get runs for this day
+            let dayRuns = runs.filter { run in
+                calendar.isDate(run.startedAt, inSameDayAs: date)
+            }
+            
+            // Calculate total distance for this day in kilometers
+            let totalDistance = dayRuns.reduce(0.0) { $0 + ($1.distance / 1000.0) }
+            
+            chartData.append(DailyDistance(date: date, distance: totalDistance))
+        }
+        
+        return chartData
     }
 }
 
