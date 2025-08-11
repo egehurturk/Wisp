@@ -18,7 +18,6 @@ struct RunCard: View {
             RunMapView(route: route)
                 .frame(height: 120)
                 .clipped()
-                .cornerRadius(12, corners: [.topLeft, .topRight])
                 .overlay(
                     Group {
                         if isLoadingRoute {

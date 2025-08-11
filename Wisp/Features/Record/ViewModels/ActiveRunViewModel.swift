@@ -268,10 +268,10 @@ final class ActiveRunViewModel: ObservableObject {
     
     private func initializeGhostData() {
         // Initialize ghost path from selected ghost route
-        if let ghostRoute = selectedGhost?.route {
-            ghostPath = ghostRoute.waypoints.map { $0.coordinate }
-            ghostCurrentPosition = ghostRoute.waypoints.first?.coordinate
-        }
+//        if let ghostRoute = selectedGhost?.route {
+//            ghostPath = ghostRoute.waypoints.map { $0.coordinate }
+//            ghostCurrentPosition = ghostRoute.waypoints.first?.coordinate
+//        }
         
         // Initialize route annotations
         updateRouteAnnotations()
