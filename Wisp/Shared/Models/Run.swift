@@ -56,6 +56,41 @@ struct Run: Identifiable, Codable, Equatable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
+    
+    // Custom decoder to handle problematic fields gracefully
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(UUID.self, forKey: .id)
+        userId = try container.decode(UUID.self, forKey: .userId)
+        externalId = try container.decodeIfPresent(String.self, forKey: .externalId)
+        dataSource = try container.decodeIfPresent(String.self, forKey: .dataSource)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        distance = try container.decode(Double.self, forKey: .distance)
+        movingTime = try container.decode(Int.self, forKey: .movingTime)
+        elapsedTime = try container.decode(Int.self, forKey: .elapsedTime)
+        averagePace = try container.decodeIfPresent(Double.self, forKey: .averagePace)
+        averageSpeed = try container.decodeIfPresent(Double.self, forKey: .averageSpeed)
+        averageCadence = try container.decodeIfPresent(Double.self, forKey: .averageCadence)
+        averageHeartRate = try container.decodeIfPresent(Double.self, forKey: .averageHeartRate)
+        maxHeartRate = try container.decodeIfPresent(Double.self, forKey: .maxHeartRate)
+        caloriesBurned = try container.decodeIfPresent(Double.self, forKey: .caloriesBurned)
+        startLatitude = try container.decodeIfPresent(Double.self, forKey: .startLatitude)
+        startLongitude = try container.decodeIfPresent(Double.self, forKey: .startLongitude)
+        endLatitude = try container.decodeIfPresent(Double.self, forKey: .endLatitude)
+        endLongitude = try container.decodeIfPresent(Double.self, forKey: .endLongitude)
+        elevationGain = try container.decodeIfPresent(Double.self, forKey: .elevationGain)
+        startedAt = try container.decode(Date.self, forKey: .startedAt)
+        timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
+        paceSplits = try container.decodeIfPresent([Double].self, forKey: .paceSplits)
+        
+        // Handle heart rate data gracefully - ignore if decode fails
+        heartRateData = try? container.decodeIfPresent([Int].self, forKey: .heartRateData)
+        
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+    }
 }
 
 extension Run {

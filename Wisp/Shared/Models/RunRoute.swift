@@ -9,6 +9,32 @@ struct CoordinatePoint: Codable, Equatable {
     var clLocationCoordinate2D: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
+    
+    // Custom decoder to handle both array [lat, lon] and object {"lat": x, "lon": y}
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        
+        if let array = try? container.decode([Double].self) {
+            // Handle array format: [lat, lon]
+            guard array.count >= 2 else {
+                throw DecodingError.dataCorrupted(DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Coordinate array must have at least 2 elements"
+                ))
+            }
+            self.lat = array[0]
+            self.lon = array[1]
+        } else {
+            // Handle object format: {"lat": x, "lon": y}
+            let keyedContainer = try decoder.container(keyedBy: CodingKeys.self)
+            self.lat = try keyedContainer.decode(Double.self, forKey: .lat)
+            self.lon = try keyedContainer.decode(Double.self, forKey: .lon)
+        }
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case lat, lon
+    }
 }
 
 struct RunRoute: Identifiable, Codable, Equatable {

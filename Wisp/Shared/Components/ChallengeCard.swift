@@ -100,13 +100,11 @@ struct ChallengeCard: View {
                 )
         )
         .onAppear {
-            logger.info("ChallengeCard appeared for challenge: \(challenge.id)")
         }
     }
     
     // MARK: - Private Methods
     private func handleButtonTap() {
-        logger.info("Challenge button tapped for: \(challenge.id)")
         // TODO: Handle join/view challenge
     }
 }

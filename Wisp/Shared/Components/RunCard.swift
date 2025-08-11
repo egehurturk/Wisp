@@ -125,6 +125,7 @@ struct RunCard: View {
                 await MainActor.run {
                     self.isLoadingRoute = false
                 }
+                logger.error(String(describing: error))
                 logger.error("Failed to load route for run: \(run.id)", error: error)
             }
         }
@@ -157,3 +158,12 @@ private struct StatView: View {
         }
     }
 }
+
+
+
+
+
+
+// TODO:
+//  Poly lines are rendered incorrectly. Either do not render coordinates, custom decode the polyline and render it, or render the coordinates.
+// 

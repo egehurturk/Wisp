@@ -74,7 +74,6 @@ struct RunsView: View {
             }
         }
         .onAppear {
-            logger.info("RunsView appeared")
             viewModel.loadRuns()
         }
         .onChange(of: searchText) { newValue in

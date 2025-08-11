@@ -119,6 +119,7 @@ final class HomeViewModel: ObservableObject {
                 analysisText = "Ready for your first run?"
             }
         } catch {
+            logger.error(String(describing: error))
             logger.error("Failed to load latest run", error: error)
             errorMessage = "Failed to load recent runs. Please try again."
         }
