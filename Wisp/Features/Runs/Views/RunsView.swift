@@ -15,23 +15,23 @@ struct RunsView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Header with statistics
-                if viewModel.hasRuns {
-                    headerStatsView
-                        .padding(.horizontal)
-                        .padding(.top, 8)
-                }
-                
-                // Search and filter bar
+                // Search bar (moved up, right after header)
                 searchAndFilterBar
                     .padding(.horizontal)
                     .padding(.vertical, 8)
                 
-                // Main content
-                mainContent
+                // Main content with scrollable chart and runs
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Runs list content
+                        runsListContent
+                    }
+                    .padding(.vertical, 8)
+                }
             }
             .navigationTitle("Runs")
             .navigationBarTitleDisplayMode(.large)
+            .background(Color(UIColor.systemBackground))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
@@ -54,6 +54,7 @@ struct RunsView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .foregroundColor(.primary)
                     }
                 }
             }
@@ -81,65 +82,7 @@ struct RunsView: View {
         }
     }
     
-    // MARK: - Header Stats View with Chart
-    private var headerStatsView: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Chart title
-            Text("Last 7 Days")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            // Chart
-            Chart(viewModel.weeklyChartData) { data in
-                BarMark(
-                    x: .value("Day", data.dayName),
-                    y: .value("Distance", data.distance)
-                )
-                .foregroundStyle(.blue.gradient)
-                .cornerRadius(4)
-            }
-            .frame(height: 120)
-            .chartYAxis {
-                AxisMarks(position: .leading) { value in
-                    AxisValueLabel {
-                        if let distance = value.as(Double.self) {
-                            Text("\(distance, specifier: "%.1f")")
-                        }
-                    }
-                    AxisGridLine()
-                    AxisTick()
-                }
-            }
-            .chartXAxis {
-                AxisMarks { value in
-                    AxisValueLabel()
-                    AxisTick()
-                }
-            }
-            .chartYAxisLabel("Distance (km)", position: .leading)
-            
-            // Summary stats below chart
-            HStack(spacing: 16) {
-                Text("Runs: \(viewModel.runCount)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text("Distance: \(viewModel.totalDistance)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text("Time: \(viewModel.totalDuration)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-        )
-    }
-    
+   
     // MARK: - Search and Filter Bar
     private var searchAndFilterBar: some View {
         HStack(spacing: 12) {
@@ -189,8 +132,8 @@ struct RunsView: View {
         }
     }
     
-    // MARK: - Main Content
-    private var mainContent: some View {
+    // MARK: - Runs List Content
+    private var runsListContent: some View {
         Group {
             if viewModel.isLoading {
                 loadingView
@@ -199,7 +142,12 @@ struct RunsView: View {
             } else if viewModel.filteredAndSortedRuns.isEmpty {
                 emptyStateView
             } else {
-                runsList
+                LazyVStack(spacing: 16) {
+                    ForEach(viewModel.filteredAndSortedRuns) { run in
+                        RunCard(run: run)
+                            .padding(.horizontal)
+                    }
+                }
             }
         }
     }
@@ -262,18 +210,6 @@ struct RunsView: View {
         .padding()
     }
     
-    // MARK: - Runs List
-    private var runsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(viewModel.filteredAndSortedRuns) { run in
-                    RunCard(run: run)
-                        .padding(.horizontal)
-                }
-            }
-            .padding(.vertical, 8)
-        }
-    }
 }
 
 // MARK: - Stat Card

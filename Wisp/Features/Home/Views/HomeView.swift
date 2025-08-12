@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 /// Home screen view displaying past runs and custom goal ghosts
 struct HomeView: View {
@@ -151,13 +152,108 @@ struct HomeView: View {
                     .fill(.ultraThinMaterial)
             )
             
-            // Quick stats row
+            // Weekly chart replacing old stats
+            weeklyChartView
+        }
+    }
+    
+    // MARK: - Weekly Chart View
+    private var weeklyChartView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Chart title with navigation
+            HStack {
+                Button(action: {
+                    viewModel.navigateToPreviousWeek()
+                }) {
+                    Image(systemName: "chevron.left")
+                        .foregroundColor(.blue)
+                }
+                
+                Spacer()
+                
+                Text(viewModel.weekTitle)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Button(action: {
+                    viewModel.navigateToNextWeek()
+                }) {
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(viewModel.canNavigateToNextWeek ? .blue : .gray)
+                }
+                .disabled(!viewModel.canNavigateToNextWeek)
+            }
+            
+            // Chart with smooth animation
+            Chart(viewModel.weeklyChartData) { data in
+                BarMark(
+                    x: .value("Day", data.dayName),
+                    y: .value("Distance", data.distance)
+                )
+                .foregroundStyle(.blue.gradient)
+                .cornerRadius(4)
+            }
+            .frame(height: 120)
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisValueLabel {
+                        if let distance = value.as(Double.self) {
+                            Text("\(distance, specifier: "%.1f")")
+                        }
+                    }
+                    AxisGridLine()
+                    AxisTick()
+                }
+            }
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisValueLabel()
+                    AxisTick()
+                }
+            }
+            .chartYAxisLabel("Distance (km)", position: .leading)
+            .animation(.easeInOut(duration: 0.6), value: viewModel.currentWeekOffset)
+            .transition(.asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .move(edge: .leading).combined(with: .opacity)
+            ))
+            .gesture(
+                DragGesture()
+                    .onEnded { value in
+                        withAnimation(.easeInOut(duration: 0.6)) {
+                            if value.translation.width > 50 {
+                                // Swipe right - go to previous week
+                                viewModel.navigateToPreviousWeek()
+                            } else if value.translation.width < -50 && viewModel.canNavigateToNextWeek {
+                                // Swipe left - go to next week (if available)
+                                viewModel.navigateToNextWeek()
+                            }
+                        }
+                    }
+            )
+            
+            // Summary stats below chart
             HStack(spacing: 16) {
-                QuickStatCard(title: "This Week", value: "12.5 km", icon: "figure.run", color: .blue)
-                QuickStatCard(title: "Best Pace", value: "4:32/km", icon: "speedometer", color: .green)
-                QuickStatCard(title: "Streak", value: "5 days", icon: "flame", color: .orange)
+                Text("Runs: \(viewModel.runCount)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text("Distance: \(viewModel.totalDistance)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text("Time: \(viewModel.totalDuration)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+        )
     }
     
     // MARK: - Latest Run Section
@@ -538,44 +634,6 @@ private struct CreateChallengeCard: View {
     }
 }
 
-// MARK: - Quick Stat Card
-private struct QuickStatCard: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.1))
-                    .frame(width: 40, height: 40)
-                
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(color)
-            }
-            
-            VStack(spacing: 4) {
-                Text(value)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-        )
-    }
-}
 
 // MARK: - Scroll Offset Preference Key
 private struct ScrollOffsetPreferenceKey: PreferenceKey {

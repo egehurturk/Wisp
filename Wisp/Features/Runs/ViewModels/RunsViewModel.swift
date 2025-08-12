@@ -1,17 +1,6 @@
 import Foundation
 import Combine
 
-struct DailyDistance: Identifiable {
-    let id = UUID()
-    let date: Date
-    let distance: Double // in kilometers
-    
-    var dayName: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: date)
-    }
-}
 
 /// View model for the Runs screen displaying past run history
 @MainActor
@@ -19,7 +8,6 @@ final class RunsViewModel: ObservableObject {
     
     // MARK: - Published Properties
     @Published var runs: [Run] = []
-    @Published var weeklyChartData: [DailyDistance] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var searchText: String = ""
@@ -202,9 +190,6 @@ final class RunsViewModel: ObservableObject {
             // Load all runs for the user
             allRuns = try await supabaseManager.fetchRuns(for: userId)
             
-            // Generate weekly chart data for last 7 days
-            weeklyChartData = generateWeeklyChartData(from: allRuns)
-            
             // Update filtered runs
             updateFilteredRuns()
             
@@ -215,30 +200,6 @@ final class RunsViewModel: ObservableObject {
         }
         
         isLoading = false
-    }
-    
-    private func generateWeeklyChartData(from runs: [Run]) -> [DailyDistance] {
-        let calendar = Calendar.current
-        let today = Date()
-        
-        // Create data for last 7 days (including today)
-        var chartData: [DailyDistance] = []
-        
-        for dayOffset in (0..<7).reversed() {
-            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) else { continue }
-            
-            // Get runs for this day
-            let dayRuns = runs.filter { run in
-                calendar.isDate(run.startedAt, inSameDayAs: date)
-            }
-            
-            // Calculate total distance for this day in kilometers
-            let totalDistance = dayRuns.reduce(0.0) { $0 + ($1.distance / 1000.0) }
-            
-            chartData.append(DailyDistance(date: date, distance: totalDistance))
-        }
-        
-        return chartData
     }
 }
 
