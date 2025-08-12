@@ -11,9 +11,6 @@ struct Ghost: Identifiable, Hashable {
     let pace: Double // seconds per kilometer
     let description: String
     let avatarImageURL: String?
-    let route: RunRoute?
-    let heartRateData: [HeartRatePoint]?
-    let paceData: [PacePoint]?
     
     enum GhostType: String, CaseIterable {
         case personalRecord = "PR"
@@ -84,9 +81,6 @@ struct Ghost: Identifiable, Hashable {
             pace: 240, // 4:00/km
             description: "Your fastest 5K time - beat it!",
             avatarImageURL: nil,
-            route: RunRoute.mockData[0],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         ),
         Ghost(
             name: "10K Personal Best",
@@ -96,9 +90,6 @@ struct Ghost: Identifiable, Hashable {
             pace: 270, // 4:30/km
             description: "Your best 10K performance",
             avatarImageURL: nil,
-            route: RunRoute.mockData[1],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         ),
         
         // Strava Friends
@@ -110,9 +101,6 @@ struct Ghost: Identifiable, Hashable {
             pace: 216, // 3:36/km
             description: "Alex's morning 5K from last week",
             avatarImageURL: "alex_avatar",
-            route: RunRoute.mockData[0],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         ),
         Ghost(
             name: "Sarah Chen",
@@ -122,9 +110,6 @@ struct Ghost: Identifiable, Hashable {
             pace: 300, // 5:00/km
             description: "Sarah's tempo run",
             avatarImageURL: "sarah_avatar",
-            route: RunRoute.mockData[2],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         ),
         Ghost(
             name: "Mike Thompson",
@@ -134,9 +119,6 @@ struct Ghost: Identifiable, Hashable {
             pace: 252, // 4:12/km
             description: "Mike's weekend long run",
             avatarImageURL: "mike_avatar",
-            route: RunRoute.mockData[1],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         ),
         
         // Custom Goals
@@ -148,9 +130,6 @@ struct Ghost: Identifiable, Hashable {
             pace: 240, // 4:00/km
             description: "Break the 20-minute barrier",
             avatarImageURL: nil,
-            route: RunRoute.mockData[0],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         ),
         Ghost(
             name: "Marathon Goal Pace",
@@ -160,9 +139,6 @@ struct Ghost: Identifiable, Hashable {
             pace: 300, // 5:00/km
             description: "Practice your marathon target pace",
             avatarImageURL: nil,
-            route: RunRoute.mockData[3],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         ),
         
         // Past Runs
@@ -174,9 +150,6 @@ struct Ghost: Identifiable, Hashable {
             pace: 300, // 5:00/km
             description: "Your run from yesterday - can you beat it?",
             avatarImageURL: nil,
-            route: RunRoute.mockData[2],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         ),
         Ghost(
             name: "Last Week's Tempo",
@@ -186,9 +159,6 @@ struct Ghost: Identifiable, Hashable {
             pace: 285, // 4:45/km
             description: "Your tempo run from last Tuesday",
             avatarImageURL: nil,
-            route: RunRoute.mockData[1],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         ),
         
         // Challenge Ghosts
@@ -200,41 +170,7 @@ struct Ghost: Identifiable, Hashable {
             pace: 180, // 3:00/km
             description: "Can you keep up with an elite pace?",
             avatarImageURL: nil,
-            route: RunRoute.mockData[0],
-            heartRateData: HeartRatePoint.mockData,
-            paceData: PacePoint.mockData
         )
     ]
 }
 
-/// Heart rate data point for ghost comparison
-struct HeartRatePoint: Identifiable, Hashable {
-    let id = UUID()
-    let timestamp: TimeInterval
-    let heartRate: Int
-    
-    static let mockData: [HeartRatePoint] = [
-        HeartRatePoint(timestamp: 0, heartRate: 120),
-        HeartRatePoint(timestamp: 60, heartRate: 140),
-        HeartRatePoint(timestamp: 120, heartRate: 160),
-        HeartRatePoint(timestamp: 180, heartRate: 170),
-        HeartRatePoint(timestamp: 240, heartRate: 175),
-        HeartRatePoint(timestamp: 300, heartRate: 165),
-        HeartRatePoint(timestamp: 360, heartRate: 155)
-    ]
-}
-
-/// Pace data point for ghost comparison
-struct PacePoint: Identifiable, Hashable {
-    let id = UUID()
-    let distance: Double // meters
-    let pace: Double // seconds per km
-    
-    static let mockData: [PacePoint] = [
-        PacePoint(distance: 1000, pace: 240), // 4:00/km
-        PacePoint(distance: 2000, pace: 250), // 4:10/km
-        PacePoint(distance: 3000, pace: 235), // 3:55/km
-        PacePoint(distance: 4000, pace: 245), // 4:05/km
-        PacePoint(distance: 5000, pace: 230)  // 3:50/km
-    ]
-}

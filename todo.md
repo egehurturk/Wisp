@@ -1,5 +1,18 @@
-* Modify Swift data models according to SupaBase tables
-* Work on importing runs from Strava to DB
+* Cache latest run in homepage --> performance improvements
+* Cache runs in runs list page 
+* UI Improvements:
+    * Runs page
+    * Runs card
+        * Background
+        * Replay runs page
+        * Card data make it better, add weather
+        * Add a badge to show if it is imported from strava
+    * Chart improvement
+        * Make it clickable, when clicked on the bar, it should show the respective run
+* Strava OAuth issue
+
+
+
 * Work on actually saving runs from the app to DB
 * Integrate Apple Health
 * Integrate Weather data

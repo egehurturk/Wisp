@@ -278,6 +278,92 @@ class SupabaseManager: ObservableObject {
         return currentUser?.id.uuidString
     }
     
+    // MARK: - Run Data Access Methods
+    
+    func fetchRun(id: UUID, for userId: UUID) async throws -> Run? {
+        logger.info("Fetching run with id: \(id.uuidString)", category: .database)
+        
+        let response: [Run] = try await client
+            .from("runs")
+            .select()
+            .eq("id", value: id.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+            .value
+        
+        logger.info("Successfully fetched \(response.count) run(s) for id: \(id.uuidString)", category: .database)
+        return response.first
+    }
+    
+    func fetchRuns(for userId: UUID, limit: Int? = nil, offset: Int? = nil) async throws -> [Run] {
+        logger.info("Fetching runs for user: \(userId.uuidString)", category: .database)
+        
+        var query = client
+            .from("runs")
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .order("started_at", ascending: false)
+        
+        if let limit = limit {
+            query = query.limit(limit)
+        }
+        
+        if let offset = offset {
+            query = query.range(from: offset, to: offset + (limit ?? 1000) - 1)
+        }
+        
+        let response: [Run] = try await query.execute().value
+        logger.info("Successfully fetched \(response.count) runs for user", category: .database)
+        return response
+    }
+    
+    func fetchLatestRun(for userId: UUID) async throws -> Run? {
+        logger.info("Fetching latest run for user: \(userId.uuidString)", category: .database)
+        
+        let response: [Run] = try await client
+            .from("runs")
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .order("started_at", ascending: false)
+            .limit(1)
+            .execute()
+            .value
+        
+        logger.info("Successfully fetched latest run for user", category: .database)
+        return response.first
+    }
+    
+    func fetchRunRoute(runId: UUID) async throws -> RunRoute? {
+        logger.info("Fetching route for run: \(runId.uuidString)", category: .database)
+        
+        let response: [RunRoute] = try await client
+            .from("run_routes")
+            .select()
+            .eq("run_id", value: runId.uuidString)
+            .execute()
+            .value
+        
+        logger.info("Successfully fetched route for run", category: .database)
+        return response.first
+    }
+    
+    func fetchRunRoutes(runIds: [UUID]) async throws -> [RunRoute] {
+        guard !runIds.isEmpty else { return [] }
+        
+        logger.info("Fetching routes for \(runIds.count) runs", category: .database)
+        
+        let runIdStrings = runIds.map { $0.uuidString }
+        let response: [RunRoute] = try await client
+            .from("run_routes")
+            .select()
+            .in("run_id", values: runIdStrings)
+            .execute()
+            .value
+        
+        logger.info("Successfully fetched \(response.count) routes", category: .database)
+        return response
+    }
+    
     private func transformError(_ error: Error, email: String, username: String) -> SignUpError {
         let errorMessage = error.localizedDescription.lowercased()
         

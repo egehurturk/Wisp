@@ -268,10 +268,10 @@ final class ActiveRunViewModel: ObservableObject {
     
     private func initializeGhostData() {
         // Initialize ghost path from selected ghost route
-        if let ghostRoute = selectedGhost?.route {
-            ghostPath = ghostRoute.waypoints.map { $0.coordinate }
-            ghostCurrentPosition = ghostRoute.waypoints.first?.coordinate
-        }
+//        if let ghostRoute = selectedGhost?.route {
+//            ghostPath = ghostRoute.waypoints.map { $0.coordinate }
+//            ghostCurrentPosition = ghostRoute.waypoints.first?.coordinate
+//        }
         
         // Initialize route annotations
         updateRouteAnnotations()
@@ -399,52 +399,3 @@ final class ActiveRunViewModel: ObservableObject {
     }
 }
 
-// MARK: - Lap Data
-struct LapData {
-    let number: Int
-    let time: TimeInterval
-    let distance: Double
-    let pace: Double
-    
-    var formattedTime: String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-}
-
-// MARK: - Run Summary Data
-struct RunSummaryData {
-    let distance: Double
-    let time: TimeInterval
-    let averagePace: Double
-    let currentHeartRate: Int?
-    let currentCadence: Int?
-    let route: [CLLocationCoordinate2D]
-    let laps: [LapData]
-    let weatherData: WeatherData?
-    
-    var formattedDistance: String {
-        let kilometers = distance / 1000
-        return String(format: "%.2f", kilometers)
-    }
-    
-    var formattedTime: String {
-        let hours = Int(time) / 3600
-        let minutes = Int(time) % 3600 / 60
-        let seconds = Int(time) % 60
-        
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            return String(format: "%d:%02d", minutes, seconds)
-        }
-    }
-    
-    var formattedAveragePace: String {
-        guard averagePace > 0 else { return "--:--" }
-        let minutes = Int(averagePace) / 60
-        let seconds = Int(averagePace) % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-}

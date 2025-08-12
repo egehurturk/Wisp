@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 /// Runs screen displaying past run history with Strava-like card layout
 struct RunsView: View {
@@ -14,23 +15,23 @@ struct RunsView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Header with statistics
-                if viewModel.hasRuns {
-                    headerStatsView
-                        .padding(.horizontal)
-                        .padding(.top, 8)
-                }
-                
-                // Search and filter bar
+                // Search bar (moved up, right after header)
                 searchAndFilterBar
                     .padding(.horizontal)
                     .padding(.vertical, 8)
                 
-                // Main content
-                mainContent
+                // Main content with scrollable chart and runs
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Runs list content
+                        runsListContent
+                    }
+                    .padding(.vertical, 8)
+                }
             }
             .navigationTitle("Runs")
             .navigationBarTitleDisplayMode(.large)
+            .background(Color(UIColor.systemBackground))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
@@ -53,6 +54,7 @@ struct RunsView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .foregroundColor(.primary)
                     }
                 }
             }
@@ -73,7 +75,6 @@ struct RunsView: View {
             }
         }
         .onAppear {
-            logger.info("RunsView appeared")
             viewModel.loadRuns()
         }
         .onChange(of: searchText) { newValue in
@@ -81,37 +82,7 @@ struct RunsView: View {
         }
     }
     
-    // MARK: - Header Stats View
-    private var headerStatsView: some View {
-        HStack(spacing: 24) {
-            StatCard(
-                title: "Total Runs",
-                value: "\(viewModel.runCount)",
-                icon: "figure.run",
-                color: .blue
-            )
-            
-            StatCard(
-                title: "Distance",
-                value: viewModel.totalDistance,
-                icon: "location",
-                color: .green
-            )
-            
-            StatCard(
-                title: "Time",
-                value: viewModel.totalDuration,
-                icon: "clock",
-                color: .orange
-            )
-        }
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-        )
-    }
-    
+   
     // MARK: - Search and Filter Bar
     private var searchAndFilterBar: some View {
         HStack(spacing: 12) {
@@ -161,8 +132,8 @@ struct RunsView: View {
         }
     }
     
-    // MARK: - Main Content
-    private var mainContent: some View {
+    // MARK: - Runs List Content
+    private var runsListContent: some View {
         Group {
             if viewModel.isLoading {
                 loadingView
@@ -171,7 +142,12 @@ struct RunsView: View {
             } else if viewModel.filteredAndSortedRuns.isEmpty {
                 emptyStateView
             } else {
-                runsList
+                LazyVStack(spacing: 16) {
+                    ForEach(viewModel.filteredAndSortedRuns) { run in
+                        RunCard(run: run)
+                            .padding(.horizontal)
+                    }
+                }
             }
         }
     }
@@ -234,24 +210,6 @@ struct RunsView: View {
         .padding()
     }
     
-    // MARK: - Runs List
-    private var runsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(viewModel.filteredAndSortedRuns) { run in
-                    DetailedRunCard(
-                        run: run,
-                        ghostResult: viewModel.getGhostResult(for: run),
-                        onTitleEdit: { newTitle in
-                            viewModel.updateRunTitle(for: run, newTitle: newTitle)
-                        }
-                    )
-                    .padding(.horizontal)
-                }
-            }
-            .padding(.vertical, 8)
-        }
-    }
 }
 
 // MARK: - Stat Card
