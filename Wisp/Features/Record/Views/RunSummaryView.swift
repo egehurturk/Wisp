@@ -8,10 +8,11 @@ struct RunSummaryView: View {
     let selectedGhost: Ghost
     let runData: RunSummaryData
     let viewModel: ActiveRunViewModel
-    let onSave: () -> Void
+    let onSave: (String?, String?) -> Void
     let onDiscard: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var runTitle = "Evening Run"
+    @State private var runDescription = ""
     @State private var showingDiscardAlert = false
     private let logger = Logger.ui
     
@@ -70,9 +71,8 @@ struct RunSummaryView: View {
     
     // MARK: - Private Methods
     private func handleRunSave() {
-        logger.info("Save run tapped from toolbar")
-        viewModel.stopGPSTracking()
-        onSave()
+        logger.info("Save run tapped from toolbar with title: '\(runTitle)' and description: '\(runDescription)'")
+        onSave(runTitle.isEmpty ? nil : runTitle, runDescription.isEmpty ? nil : runDescription)
     }
     
     // MARK: - Main Stats Section
@@ -126,18 +126,37 @@ struct RunSummaryView: View {
     
     // MARK: - Run Title Input
     private var runTitleInput: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Activity Name")
-                .font(.headline)
-                .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 16) {
+            // Activity Name
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Activity Name")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                TextField("Evening Run", text: $runTitle)
+                    .font(.body)
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(.systemGray6))
+                    )
+            }
             
-            TextField("Evening Run", text: $runTitle)
-                .font(.body)
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.systemGray6))
-                )
+            // Description
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Description (Optional)")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                TextField("Add a description...", text: $runDescription, axis: .vertical)
+                    .font(.body)
+                    .lineLimit(3...6)
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(.systemGray6))
+                    )
+            }
         }
     }
     
@@ -187,6 +206,9 @@ struct RunSummaryView: View {
                 .foregroundColor(.primary)
             
             VStack(spacing: 1) {
+                // Elapsed Time (total time including pauses)
+                StatRow(title: "Elapsed Time", value: runData.formattedElapsedTime, unit: "")
+                
                 if let heartRate = runData.currentHeartRate {
                     StatRow(title: "Heart Rate", value: "\(heartRate)", unit: "bpm")
                 }
@@ -322,8 +344,8 @@ struct RunSummaryView: View {
         VStack(spacing: 12) {
             // Save button with loading state
             Button(action: {
-                logger.info("Save run tapped")
-                onSave()
+                logger.info("Save run tapped with title: '\(runTitle)' and description: '\(runDescription)'")
+                onSave(runTitle.isEmpty ? nil : runTitle, runDescription.isEmpty ? nil : runDescription)
             }) {
                 HStack(spacing: 8) {
                     if viewModel.isSaving {
@@ -475,15 +497,17 @@ private struct RoutePathOverlay: View {
         selectedGhost: Ghost.mockData[0],
         runData: RunSummaryData(
             distance: 5000,
-            time: 1400,
+            movingTime: 1400,
+            elapsedTime: 1500,
             averagePace: 300,
             currentHeartRate: 165,
             currentCadence: 180,
             route: [],
-            laps: [], weatherData: WeatherData.mockData[0]
+            laps: [],
+            weatherData: WeatherData.mockData[0]
         ),
         viewModel: ActiveRunViewModel(),
-        onSave: {},
+        onSave: { _, _ in },
         onDiscard: {}
     )
 }

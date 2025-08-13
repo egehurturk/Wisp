@@ -262,7 +262,8 @@ final class ActiveRunViewModel: ObservableObject {
             
             return RunSummaryData(
                 distance: distance,
-                time: currentMovingTime, // Use moving time for display
+                movingTime: currentMovingTime,
+                elapsedTime: currentElapsedTime,
                 averagePace: averagePace,
                 currentHeartRate: currentHeartRate,
                 currentCadence: currentCadence,
@@ -274,7 +275,8 @@ final class ActiveRunViewModel: ObservableObject {
         
         return RunSummaryData(
             distance: distance,
-            time: movingTime,
+            movingTime: movingTime,
+            elapsedTime: elapsedTime,
             averagePace: averagePace,
             currentHeartRate: currentHeartRate,
             currentCadence: currentCadence,
@@ -292,7 +294,7 @@ final class ActiveRunViewModel: ObservableObject {
     // MARK: - Save Functionality
     
     // Saves the current run and its route to the database
-    func saveRun() async {
+    func saveRun(title: String? = nil, description: String? = nil) async {
         await MainActor.run {
             isSaving = true
             saveError = nil
@@ -308,7 +310,7 @@ final class ActiveRunViewModel: ObservableObject {
             }
             
             // Build insert models
-            let runInsert = try buildRunInsert(userId: userId)
+            let runInsert = try buildRunInsert(userId: userId, title: title, description: description)
             let routeInsert = try buildRunRouteInsert()
             
             // Save to database
@@ -330,7 +332,7 @@ final class ActiveRunViewModel: ObservableObject {
     }
     
     /// Builds a RunInsert from current session data
-    private func buildRunInsert(userId: UUID) throws -> RunInsert {
+    private func buildRunInsert(userId: UUID, title: String? = nil, description: String? = nil) throws -> RunInsert {
         guard let startTime = startTime else {
             throw SaveError.missingData("Run start time not found")
         }
@@ -358,8 +360,8 @@ final class ActiveRunViewModel: ObservableObject {
             userId: userId,
             externalId: nil,
             dataSource: "app",
-            title: nil, // Will be set in RunSummaryView
-            description: nil,
+            title: title?.isEmpty == false ? title : nil,
+            description: description?.isEmpty == false ? description : nil,
             distance: distance,
             movingTime: Int(finalMovingTime),
             elapsedTime: Int(finalElapsedTime),

@@ -2,6 +2,7 @@
 * Cache runs in runs list page 
     - it fetches from strava api every time
     - use cache!!
+* RunSummaryView map issue
 * UI Improvements:
     * Runs page
     * Runs card

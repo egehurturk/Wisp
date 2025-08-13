@@ -76,9 +76,9 @@ struct ActiveRunView: View {
                     selectedGhost: selectedGhost,
                     runData: runData,
                     viewModel: viewModel
-                ) {
+                ) { title, description in
                     // On save
-                    handleRunSave()
+                    handleRunSave(title: title, description: description)
                 } onDiscard: {
                     // On discard
                     handleRunDiscard()
@@ -524,10 +524,10 @@ struct ActiveRunView: View {
         }
     }
     
-    private func handleRunSave() {
-        logger.info("Starting run save process from UI")
+    private func handleRunSave(title: String?, description: String?) {
+        logger.info("Starting run save process from UI with title: '\(title ?? "")' and description: '\(description ?? "")'")
         Task {
-            await viewModel.saveRun()
+            await viewModel.saveRun(title: title, description: description)
         }
     }
     
