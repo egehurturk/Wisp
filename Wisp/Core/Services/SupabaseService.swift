@@ -19,6 +19,11 @@ class SupabaseManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: User?
     
+    // Get current user ID
+    var currentUserId: String? {
+        return currentUser?.id.uuidString
+    }
+    
     private init() {
         
         guard Configuration.validateConfiguration() else {
@@ -44,6 +49,7 @@ class SupabaseManager: ObservableObject {
         }
     }
     
+    // MARK: Auth Setup
     private func setupAuthStateListener() async {
         logger.info("Setting up auth state listener", category: .authentication)
         for await (event, session) in client.auth.authStateChanges {
@@ -111,6 +117,7 @@ class SupabaseManager: ObservableObject {
         logger.info("🔍 Initial auth check completed. isAuthenticated = \(self.isAuthenticated)", category: .authentication)
     }
     
+    // MARK: Auth Creation Methods
     func signUp(email: String, password: String, username: String) async throws {
         let logDetails = Configuration.Logger.logSensitiveData ? [
             "email": email,
@@ -215,7 +222,9 @@ class SupabaseManager: ObservableObject {
         }
     }
     
-    /// Handle OAuth callback URL with comprehensive error handling
+    // MARK: Auth Callbacks
+    
+    // Handle OAuth callback URL with comprehensive error handling
     func handleOAuthCallback(url: URL) async {
         logger.info("Processing OAuth callback: \(url.absoluteString)", category: .authentication)
         
@@ -245,41 +254,8 @@ class SupabaseManager: ObservableObject {
         }
     }
     
-    private func handleOAuthError(_ error: OAuthError) async {
-        // Handle different types of OAuth errors
-        switch error {
-        case .invalidScheme:
-            logger.critical("OAuth callback with invalid URL scheme detected", category: .security)
-        case .authorizationDenied(let code):
-            logger.warning("User denied OAuth authorization: \(code)", category: .authentication)
-        case .sessionCreationFailed(let underlyingError):
-            logger.error("Failed to create session from OAuth callback", error: underlyingError, category: .authentication)
-        }
-        
-        // Notify UI about the error
-        await MainActor.run {
-            // Could emit error notifications here for UI handling
-        }
-    }
     
-    // Get current user's JWT token for backend API calls
-    func getCurrentUserToken() async -> String? {
-        do {
-            let session = try await client.auth.session
-            return session.accessToken
-        } catch {
-            logger.warning("Failed to get current user token: \(error.localizedDescription)", category: .authentication)
-            return nil
-        }
-    }
-    
-    // Get current user ID
-    var currentUserId: String? {
-        return currentUser?.id.uuidString
-    }
-    
-    // MARK: - Run Data Access Methods
-    
+    // MARK: - Run Read Methods
     func fetchRun(id: UUID, for userId: UUID) async throws -> Run? {
         logger.info("Fetching run with id: \(id.uuidString)", category: .database)
         
@@ -364,9 +340,9 @@ class SupabaseManager: ObservableObject {
         return response
     }
     
-    // MARK: - Run Data Write Methods
+    // MARK: - Run Write Methods
     
-    /// Saves a run to the database and returns the inserted run with generated fields
+    // Saves a run to the database and returns the inserted run with generated fields
     func saveRun(_ runInsert: RunInsert) async throws -> Run {
         logger.info("Saving run to database", category: .database)
         
@@ -395,7 +371,7 @@ class SupabaseManager: ObservableObject {
         }
     }
     
-    /// Saves a run route to the database and returns the inserted route with generated fields
+    // Saves a run route to the database and returns the inserted route with generated fields
     func saveRunRoute(_ routeInsert: RunRouteInsert) async throws -> RunRoute {
         logger.info("Saving run route to database for run: \(routeInsert.runId)", category: .database)
         
@@ -424,7 +400,7 @@ class SupabaseManager: ObservableObject {
         }
     }
     
-    /// Saves multiple runs in a batch operation
+    // Saves multiple runs in a batch operation
     func saveRuns(_ runInserts: [RunInsert]) async throws -> [Run] {
         guard !runInserts.isEmpty else { return [] }
         
@@ -452,9 +428,9 @@ class SupabaseManager: ObservableObject {
         }
     }
     
-    /// Orchestrated save: saves a run and its route atomically with compensation on failure
+    // Orchestrated save: saves a run and its route atomically with compensation on failure
     func saveRunWithRoute(_ runInsert: RunInsert, _ routeInsert: RunRouteInsert) async throws -> (Run, RunRoute) {
-        logger.info("Starting orchestrated save for run with route", category: .database)
+        logger.info("Starting save for run with route", category: .database)
         
         // Step 1: Save the run first
         let insertedRun: Run
@@ -475,7 +451,7 @@ class SupabaseManager: ObservableObject {
         
         do {
             let insertedRoute = try await saveRunRoute(updatedRouteInsert)
-            logger.info("Successfully completed orchestrated save", category: .database)
+            logger.info("Successfully completed save", category: .database)
             return (insertedRun, insertedRoute)
             
         } catch {
@@ -500,7 +476,39 @@ class SupabaseManager: ObservableObject {
         }
     }
     
-    /// Transforms database errors into user-friendly errors
+    // MARK: Utilities
+    
+    // Get current user's JWT token for backend API calls
+    func getCurrentUserToken() async -> String? {
+        do {
+            let session = try await client.auth.session
+            return session.accessToken
+        } catch {
+            logger.warning("Failed to get current user token: \(error.localizedDescription)", category: .authentication)
+            return nil
+        }
+    }
+    
+    // MARK: Errors
+    
+    private func handleOAuthError(_ error: OAuthError) async {
+        // Handle different types of OAuth errors
+        switch error {
+        case .invalidScheme:
+            logger.critical("OAuth callback with invalid URL scheme detected", category: .security)
+        case .authorizationDenied(let code):
+            logger.warning("User denied OAuth authorization: \(code)", category: .authentication)
+        case .sessionCreationFailed(let underlyingError):
+            logger.error("Failed to create session from OAuth callback", error: underlyingError, category: .authentication)
+        }
+        
+        // Notify UI about the error
+        await MainActor.run {
+            // Could emit error notifications here for UI handling
+        }
+    }
+    
+    // Transforms database errors into user-friendly errors
     private func transformDatabaseError(_ error: Error, context: String) -> DatabaseError {
         let errorMessage = error.localizedDescription.lowercased()
         

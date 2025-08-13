@@ -7,44 +7,62 @@ import MapKit
 @MainActor
 final class ActiveRunViewModel: ObservableObject {
     
-    // MARK: - Published Properties
+    // Run state management
     @Published var isRunning: Bool = false
-    @Published var elapsedTime: TimeInterval = 0
+    
+    // Run metrics
+    @Published var elapsedTime: TimeInterval = 0 // Total time since start (includes pauses)
+    @Published var movingTime: TimeInterval = 0 // Active running time (excludes pauses)
     @Published var distance: Double = 0 // meters
     @Published var currentPace: Double = 0 // seconds per km
     @Published var averagePace: Double = 0 // seconds per km
     @Published var currentHeartRate: Int? = nil
     @Published var currentCadence: Int? = nil
+    private var startTime: Date?
+    private var lastPauseTime: Date?
+    private var totalPausedTime: TimeInterval = 0
+    private var timer: Timer?
+    private var lastLocationUpdate: Date = Date()
+    private var laps: [LapData] = []
+    
+    // Save state management
+    @Published var isSaving = false
+    @Published var saveError: String?
+    @Published var saveSuccess = false
+    
+    // User routes
+    @Published var routeAnnotations: [RouteAnnotation] = []
+    @Published var userPath: [CLLocationCoordinate2D] = []
     @Published var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
         span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
     )
-    @Published var routeAnnotations: [RouteAnnotation] = []
-    @Published var userPath: [CLLocationCoordinate2D] = []
-    @Published var ghostPath: [CLLocationCoordinate2D] = []
-    @Published var isAheadOfGhost: Bool = false
-    @Published var ghostTimeDifference: String? = nil
+    
+    // Location errors
     @Published var locationPermissionDenied: Bool = false
     @Published var locationError: LocationError?
     
-    // MARK: - Private Properties
+    // Ghost
     private var selectedGhost: Ghost?
-    private var startTime: Date?
-    private var timer: Timer?
-    private var lastLocationUpdate: Date = Date()
+    @Published var ghostPath: [CLLocationCoordinate2D] = []
+    @Published var isAheadOfGhost: Bool = false
+    @Published var ghostTimeDifference: String? = nil
     private var ghostCurrentPosition: CLLocationCoordinate2D?
-    private var laps: [LapData] = []
+    
+    // Services
     private let logger = Logger.general
     private let gpsManager = GPSManager()
     private let weatherService = WeatherService()
+    private let supabaseManager = SupabaseManager.shared
+    
     private var startWeatherData: WeatherData?
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
     var formattedTime: String {
-        let hours = Int(elapsedTime) / 3600
-        let minutes = Int(elapsedTime) % 3600 / 60
-        let seconds = Int(elapsedTime) % 60
+        let hours = Int(movingTime) / 3600
+        let minutes = Int(movingTime) % 3600 / 60
+        let seconds = Int(movingTime) % 60
         
         if hours > 0 {
             return String(format: "%d:%02d:%02d", hours, minutes, seconds)
@@ -192,6 +210,7 @@ final class ActiveRunViewModel: ObservableObject {
     func pauseRun() {
         logger.info("Run paused")
         isRunning = false
+        lastPauseTime = Date()
         timer?.invalidate()
         timer = nil
         
@@ -201,6 +220,14 @@ final class ActiveRunViewModel: ObservableObject {
     
     func resumeRun() {
         logger.info("Run resumed")
+        
+        // Calculate paused duration and add to total
+        if let pauseTime = lastPauseTime {
+            let pauseDuration = Date().timeIntervalSince(pauseTime)
+            totalPausedTime += pauseDuration
+            lastPauseTime = nil
+        }
+        
         isRunning = true
         startTimer()
         
@@ -219,7 +246,7 @@ final class ActiveRunViewModel: ObservableObject {
     func addLap() {
         let lapData = LapData(
             number: laps.count + 1,
-            time: elapsedTime,
+            time: movingTime, // Use moving time for laps
             distance: distance,
             pace: currentPace
         )
@@ -228,9 +255,26 @@ final class ActiveRunViewModel: ObservableObject {
     }
     
     func getRunSummaryData() -> RunSummaryData {
+        // Final update of moving time in case run just ended
+        if let startTime = startTime {
+            let currentElapsedTime = Date().timeIntervalSince(startTime)
+            let currentMovingTime = currentElapsedTime - totalPausedTime
+            
+            return RunSummaryData(
+                distance: distance,
+                time: currentMovingTime, // Use moving time for display
+                averagePace: averagePace,
+                currentHeartRate: currentHeartRate,
+                currentCadence: currentCadence,
+                route: userPath,
+                laps: laps,
+                weatherData: startWeatherData
+            )
+        }
+        
         return RunSummaryData(
             distance: distance,
-            time: elapsedTime,
+            time: movingTime,
             averagePace: averagePace,
             currentHeartRate: currentHeartRate,
             currentCadence: currentCadence,
@@ -243,6 +287,133 @@ final class ActiveRunViewModel: ObservableObject {
     func stopGPSTracking() {
         logger.info("Stopping GPS tracking from ActiveRunViewModel")
         gpsManager.stopTracking()
+    }
+    
+    // MARK: - Save Functionality
+    
+    // Saves the current run and its route to the database
+    func saveRun() async {
+        await MainActor.run {
+            isSaving = true
+            saveError = nil
+            saveSuccess = false
+        }
+        
+        logger.info("Starting run save process")
+        
+        do {
+            // Validate we have a logged-in user
+            guard let userId = supabaseManager.currentUser?.id else {
+                throw SaveError.userNotAuthenticated
+            }
+            
+            // Build insert models
+            let runInsert = try buildRunInsert(userId: userId)
+            let routeInsert = try buildRunRouteInsert()
+            
+            // Save to database
+            let (savedRun, savedRoute) = try await supabaseManager.saveRunWithRoute(runInsert, routeInsert)
+            
+            await MainActor.run {
+                self.isSaving = false
+                self.saveSuccess = true
+                self.logger.info("Successfully saved run: \(savedRun.id) with \(savedRoute.totalPoints) route points")
+            }
+            
+        } catch {
+            await MainActor.run {
+                self.isSaving = false
+                self.saveError = self.transformSaveError(error)
+                self.logger.error("Failed to save run", error: error)
+            }
+        }
+    }
+    
+    /// Builds a RunInsert from current session data
+    private func buildRunInsert(userId: UUID) throws -> RunInsert {
+        guard let startTime = startTime else {
+            throw SaveError.missingData("Run start time not found")
+        }
+        
+        guard distance > 0 else {
+            throw SaveError.invalidData("No distance recorded for this run")
+        }
+        
+        // Calculate final elapsed and moving times
+        let finalElapsedTime = Date().timeIntervalSince(startTime)
+        let finalMovingTime = finalElapsedTime - totalPausedTime
+        
+        guard finalMovingTime > 0 else {
+            throw SaveError.invalidData("No moving time recorded for this run")
+        }
+        
+        // Get start and end coordinates from GPS data
+        let startCoord = gpsManager.routeLocations.first?.coordinate
+        let endCoord = gpsManager.routeLocations.last?.coordinate
+        
+        // Build heart rate data array if available
+        let heartRateArray = currentHeartRate != nil ? [currentHeartRate!] : nil
+        
+        return RunInsert(
+            userId: userId,
+            externalId: nil,
+            dataSource: "app",
+            title: nil, // Will be set in RunSummaryView
+            description: nil,
+            distance: distance,
+            movingTime: Int(finalMovingTime),
+            elapsedTime: Int(finalElapsedTime),
+            averagePace: averagePace > 0 ? averagePace : nil,
+            averageSpeed: averagePace > 0 ? (1000 / averagePace) : nil, // m/s
+            averageCadence: currentCadence != nil ? Double(currentCadence!) : nil,
+            averageHeartRate: currentHeartRate != nil ? Double(currentHeartRate!) : nil,
+            maxHeartRate: currentHeartRate != nil ? Double(currentHeartRate!) : nil,
+            caloriesBurned: nil, // Could be calculated based on heart rate/duration
+            startLatitude: startCoord?.latitude,
+            startLongitude: startCoord?.longitude,
+            endLatitude: endCoord?.latitude,
+            endLongitude: endCoord?.longitude,
+            elevationGain: nil, // Could be calculated from GPS altitude data
+            startedAt: startTime,
+            timezone: TimeZone.current.identifier,
+            paceSplits: nil, // Could be implemented with lap data
+            heartRateData: heartRateArray
+        )
+    }
+    
+    /// Builds a RunRouteInsert from current GPS data
+    private func buildRunRouteInsert() throws -> RunRouteInsert {
+        guard !userPath.isEmpty else {
+            throw SaveError.missingData("No route data recorded")
+        }
+        
+        // Create encoded polyline for efficient storage
+        let encodedPolyline = RunRouteInsert.encodePolyline(coordinates: userPath)
+        logger.info("User polyline encoded: \(encodedPolyline)")
+        logger.info("User run path: \(userPath)")
+        return RunRouteInsert(
+            runId: UUID(), // Will be updated by SupabaseManager with actual run ID
+            coordinatesArray: userPath,
+            encodedPolyline: encodedPolyline
+        )
+    }
+    
+    /// Transforms save errors into user-friendly messages
+    private func transformSaveError(_ error: Error) -> String {
+        if let saveError = error as? SaveError {
+            return saveError.userMessage
+        }
+        
+        if let dbError = error as? DatabaseError {
+            return dbError.localizedDescription
+        }
+        
+        if let validationError = error as? ValidationError {
+            return validationError.localizedDescription
+        }
+        
+        // Generic error
+        return "Unable to save run: \(error.localizedDescription)"
     }
     
     // MARK: - Private Methods
@@ -288,9 +459,13 @@ final class ActiveRunViewModel: ObservableObject {
     }
     
     private func updateRunMetrics() {
-        guard isRunning else { return }
+        guard isRunning, let startTime = startTime else { return }
         
-        elapsedTime += 1.0
+        // Calculate total elapsed time (including pauses)
+        elapsedTime = Date().timeIntervalSince(startTime)
+        
+        // Calculate moving time (excluding pauses)
+        movingTime = elapsedTime - totalPausedTime
         
         // Distance is automatically updated from GPS manager binding
         // No need to simulate distance progression
@@ -309,8 +484,8 @@ final class ActiveRunViewModel: ObservableObject {
     }
     
     private func updatePaceMetrics() {
-        if distance > 0 {
-            averagePace = elapsedTime / (distance / 1000) // seconds per km
+        if distance > 0 && movingTime > 0 {
+            averagePace = movingTime / (distance / 1000) // seconds per km based on moving time
         }
         
         // Simulate current pace with some variation
@@ -394,6 +569,36 @@ final class ActiveRunViewModel: ObservableObject {
         }
         
         routeAnnotations = annotations
+    }
+}
+
+// MARK: - Save Error Types
+enum SaveError: LocalizedError {
+    case userNotAuthenticated
+    case missingData(String)
+    case invalidData(String)
+    case networkError(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .userNotAuthenticated:
+            return "User not authenticated"
+        case .missingData(let message), .invalidData(let message), .networkError(let message):
+            return message
+        }
+    }
+    
+    var userMessage: String {
+        switch self {
+        case .userNotAuthenticated:
+            return "Please sign in to save your run"
+        case .missingData(let message):
+            return "Missing run data: \(message)"
+        case .invalidData(let message):
+            return "Invalid run data: \(message)"
+        case .networkError(let message):
+            return "Network error: \(message)"
+        }
     }
 }
 
