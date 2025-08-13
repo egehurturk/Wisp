@@ -132,6 +132,7 @@ iOSInjectionProject/
 desc
 oauth.md
 WispTests
+claude_io
 WispUITests
 .claude/
 CLAUDE.md

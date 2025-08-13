@@ -76,9 +76,9 @@ struct ActiveRunView: View {
                     selectedGhost: selectedGhost,
                     runData: runData,
                     viewModel: viewModel
-                ) {
+                ) { title, description in
                     // On save
-                    handleRunSave()
+                    handleRunSave(title: title, description: description)
                 } onDiscard: {
                     // On discard
                     handleRunDiscard()
@@ -105,13 +105,22 @@ struct ActiveRunView: View {
         }
         .onDisappear {
             // Don't pause automatically - let GPS continue in background
-            logger.info("ActiveRunView disappeared - GPS continues in background")
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             logger.info("App entered background during run - GPS tracking continues")
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             logger.info("App entering foreground - resuming UI updates")
+        }
+        .onChange(of: viewModel.saveSuccess) { success in
+            if success {
+                handleSaveSuccess()
+            }
+        }
+        .onChange(of: viewModel.saveError) { error in
+            if error != nil {
+                handleSaveError(error)
+            }
         }
     }
     
@@ -332,7 +341,7 @@ struct ActiveRunView: View {
     private var controlButtonsSection: some View {
         HStack(spacing: 40) {
             // Lap button
-            StravaControlButton(
+            ControlButton(
                 icon: "arrow.clockwise",
                 color: .white.opacity(0.2),
                 size: .medium
@@ -341,7 +350,7 @@ struct ActiveRunView: View {
             }
             
             // Pause/Resume button
-            StravaControlButton(
+            ControlButton(
                 icon: viewModel.isRunning ? "pause.fill" : "play.fill",
                 color: .red,
                 size: .large
@@ -350,7 +359,7 @@ struct ActiveRunView: View {
             }
             
             // Finish button
-            StravaControlButton(
+            ControlButton(
                 icon: "stop.fill",
                 color: .white.opacity(0.2),
                 size: .medium
@@ -515,12 +524,11 @@ struct ActiveRunView: View {
         }
     }
     
-    private func handleRunSave() {
-        logger.info("Run saved - navigating to home")
-        viewModel.stopGPSTracking()
-        
-        // Navigate back to home and dismiss all modals
-        navigateToHome()
+    private func handleRunSave(title: String?, description: String?) {
+        logger.info("Starting run save process from UI with title: '\(title ?? "")' and description: '\(description ?? "")'")
+        Task {
+            await viewModel.saveRun(title: title, description: description)
+        }
     }
     
     private func handleRunDiscard() {
@@ -529,6 +537,23 @@ struct ActiveRunView: View {
         
         // Navigate back to home and dismiss all modals
         navigateToHome()
+    }
+    
+    private func handleSaveSuccess() {
+        logger.info("Run save successful - navigating to home and refreshing data")
+        viewModel.stopGPSTracking()
+        
+        // Post notification for data refresh
+        NotificationCenter.default.post(name: .runSaved, object: nil)
+        
+        // Navigate back to home and dismiss all modals
+        navigateToHome()
+    }
+    
+    private func handleSaveError(_ error: String?) {
+        logger.error("Run save failed: \(error ?? "Unknown error")")
+        // Error will be displayed in RunSummaryView
+        // Keep user in the summary view to retry or discard
     }
     
     private func navigateToHome() {
@@ -576,7 +601,7 @@ private struct StravaStatCard: View {
 }
 
 // MARK: - Strava Control Button
-private struct StravaControlButton: View {
+private struct ControlButton: View {
     let icon: String
     let color: Color
     let size: ButtonSize

@@ -82,7 +82,7 @@ final class GPSManager: NSObject, ObservableObject {
     
     // MARK: - Permission Management
     
-    /// Request appropriate location permissions for the app
+    // Request appropriate location permissions for the app
     func requestLocationPermission() {
         logger.info("Requesting location permission, current status: \(authorizationStatus.description)")
         
@@ -104,7 +104,7 @@ final class GPSManager: NSObject, ObservableObject {
     
     // MARK: - Tracking Control
     
-    /// Start GPS tracking for a run
+    // Start GPS tracking for a run
     func startTracking() {
         logger.info("Starting GPS tracking")
         
@@ -132,7 +132,7 @@ final class GPSManager: NSObject, ObservableObject {
         logger.info("GPS tracking started successfully")
     }
     
-    /// Stop GPS tracking
+    // Stop GPS tracking
     func stopTracking() {
         logger.info("Stopping GPS tracking")
         
@@ -143,7 +143,7 @@ final class GPSManager: NSObject, ObservableObject {
         logger.info("GPS tracking stopped. Total coordinates collected: \(routeCoordinates.count)")
     }
     
-    /// Pause GPS tracking (keeps data, stops updates)
+    // Pause GPS tracking (keeps data, stops updates)
     func pauseTracking() {
         logger.info("Pausing GPS tracking")
         
@@ -153,7 +153,7 @@ final class GPSManager: NSObject, ObservableObject {
         logger.info("GPS tracking paused")
     }
     
-    /// Resume GPS tracking after pause
+    // Resume GPS tracking after pause
     func resumeTracking() {
         logger.info("Resuming GPS tracking")
         
@@ -172,7 +172,7 @@ final class GPSManager: NSObject, ObservableObject {
     
     // MARK: - Data Management
     
-    /// Clear all tracking data
+    // Clear all tracking data
     func clearTrackingData() {
         logger.debug("Clearing GPS tracking data")
         
@@ -184,7 +184,7 @@ final class GPSManager: NSObject, ObservableObject {
         logger.debug("GPS tracking data cleared")
     }
     
-    /// Get route summary for completed run
+    // Get route summary for completed run
     func getRouteSummary() -> RouteSummary {
         let summary = RouteSummary(
             coordinates: routeCoordinates,
@@ -318,7 +318,7 @@ enum LocationError: Error, LocalizedError {
     }
 }
 
-/// Summary of a completed route
+// Summary of a completed route
 struct RouteSummary {
     let coordinates: [CLLocationCoordinate2D]
     let locations: [CLLocation]

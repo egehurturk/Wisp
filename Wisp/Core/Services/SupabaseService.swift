@@ -19,6 +19,11 @@ class SupabaseManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: User?
     
+    // Get current user ID
+    var currentUserId: String? {
+        return currentUser?.id.uuidString
+    }
+    
     private init() {
         
         guard Configuration.validateConfiguration() else {
@@ -44,6 +49,7 @@ class SupabaseManager: ObservableObject {
         }
     }
     
+    // MARK: Auth Setup
     private func setupAuthStateListener() async {
         logger.info("Setting up auth state listener", category: .authentication)
         for await (event, session) in client.auth.authStateChanges {
@@ -111,6 +117,7 @@ class SupabaseManager: ObservableObject {
         logger.info("🔍 Initial auth check completed. isAuthenticated = \(self.isAuthenticated)", category: .authentication)
     }
     
+    // MARK: Auth Creation Methods
     func signUp(email: String, password: String, username: String) async throws {
         let logDetails = Configuration.Logger.logSensitiveData ? [
             "email": email,
@@ -215,7 +222,9 @@ class SupabaseManager: ObservableObject {
         }
     }
     
-    /// Handle OAuth callback URL with comprehensive error handling
+    // MARK: Auth Callbacks
+    
+    // Handle OAuth callback URL with comprehensive error handling
     func handleOAuthCallback(url: URL) async {
         logger.info("Processing OAuth callback: \(url.absoluteString)", category: .authentication)
         
@@ -245,41 +254,8 @@ class SupabaseManager: ObservableObject {
         }
     }
     
-    private func handleOAuthError(_ error: OAuthError) async {
-        // Handle different types of OAuth errors
-        switch error {
-        case .invalidScheme:
-            logger.critical("OAuth callback with invalid URL scheme detected", category: .security)
-        case .authorizationDenied(let code):
-            logger.warning("User denied OAuth authorization: \(code)", category: .authentication)
-        case .sessionCreationFailed(let underlyingError):
-            logger.error("Failed to create session from OAuth callback", error: underlyingError, category: .authentication)
-        }
-        
-        // Notify UI about the error
-        await MainActor.run {
-            // Could emit error notifications here for UI handling
-        }
-    }
     
-    // Get current user's JWT token for backend API calls
-    func getCurrentUserToken() async -> String? {
-        do {
-            let session = try await client.auth.session
-            return session.accessToken
-        } catch {
-            logger.warning("Failed to get current user token: \(error.localizedDescription)", category: .authentication)
-            return nil
-        }
-    }
-    
-    // Get current user ID
-    var currentUserId: String? {
-        return currentUser?.id.uuidString
-    }
-    
-    // MARK: - Run Data Access Methods
-    
+    // MARK: - Run Read Methods
     func fetchRun(id: UUID, for userId: UUID) async throws -> Run? {
         logger.info("Fetching run with id: \(id.uuidString)", category: .database)
         
@@ -362,6 +338,210 @@ class SupabaseManager: ObservableObject {
         
         logger.info("Successfully fetched \(response.count) routes", category: .database)
         return response
+    }
+    
+    // MARK: - Run Write Methods
+    
+    // Saves a run to the database and returns the inserted run with generated fields
+    func saveRun(_ runInsert: RunInsert) async throws -> Run {
+        logger.info("Saving run to database", category: .database)
+        
+        // Validate run data before insert
+        try runInsert.validate()
+        
+        do {
+            let response: [Run] = try await client
+                .from("runs")
+                .insert(runInsert)
+                .select()
+                .execute()
+                .value
+            
+            guard let insertedRun = response.first else {
+                logger.error("No run returned after insert", category: .database)
+                throw DatabaseError.insertFailed("No run returned after insert")
+            }
+            
+            logger.info("Successfully saved run with id: \(insertedRun.id)", category: .database)
+            return insertedRun
+            
+        } catch {
+            logger.error("Failed to save run", error: error, category: .database)
+            throw transformDatabaseError(error, context: "saving run")
+        }
+    }
+    
+    // Saves a run route to the database and returns the inserted route with generated fields
+    func saveRunRoute(_ routeInsert: RunRouteInsert) async throws -> RunRoute {
+        logger.info("Saving run route to database for run: \(routeInsert.runId)", category: .database)
+        
+        // Validate route data before insert
+        try routeInsert.validate()
+        
+        do {
+            let response: [RunRoute] = try await client
+                .from("run_routes")
+                .insert(routeInsert)
+                .select()
+                .execute()
+                .value
+            
+            guard let insertedRoute = response.first else {
+                logger.error("No route returned after insert", category: .database)
+                throw DatabaseError.insertFailed("No route returned after insert")
+            }
+            
+            logger.info("Successfully saved route with \(insertedRoute.totalPoints) points", category: .database)
+            return insertedRoute
+            
+        } catch {
+            logger.error("Failed to save run route", error: error, category: .database)
+            throw transformDatabaseError(error, context: "saving run route")
+        }
+    }
+    
+    // Saves multiple runs in a batch operation
+    func saveRuns(_ runInserts: [RunInsert]) async throws -> [Run] {
+        guard !runInserts.isEmpty else { return [] }
+        
+        logger.info("Saving \(runInserts.count) runs to database", category: .database)
+        
+        // Validate all runs before batch insert
+        for runInsert in runInserts {
+            try runInsert.validate()
+        }
+        
+        do {
+            let response: [Run] = try await client
+                .from("runs")
+                .insert(runInserts)
+                .select()
+                .execute()
+                .value
+            
+            logger.info("Successfully saved \(response.count) runs", category: .database)
+            return response
+            
+        } catch {
+            logger.error("Failed to save runs batch", error: error, category: .database)
+            throw transformDatabaseError(error, context: "saving runs batch")
+        }
+    }
+    
+    // Orchestrated save: saves a run and its route atomically with compensation on failure
+    func saveRunWithRoute(_ runInsert: RunInsert, _ routeInsert: RunRouteInsert) async throws -> (Run, RunRoute) {
+        logger.info("Starting save for run with route", category: .database)
+        
+        // Step 1: Save the run first
+        let insertedRun: Run
+        do {
+            insertedRun = try await saveRun(runInsert)
+        } catch {
+            logger.error("Failed to save run in orchestrated operation", error: error, category: .database)
+            throw error
+        }
+        
+        // Step 2: Update route with the generated run ID and save
+        var updatedRouteInsert = routeInsert
+        updatedRouteInsert = RunRouteInsert(
+            runId: insertedRun.id,
+            coordinates: routeInsert.coordinates,
+            encodedPolyline: routeInsert.encodedPolyline
+        )
+        
+        do {
+            let insertedRoute = try await saveRunRoute(updatedRouteInsert)
+            logger.info("Successfully completed save", category: .database)
+            return (insertedRun, insertedRoute)
+            
+        } catch {
+            // Step 3: Compensation - delete the inserted run if route save fails
+            logger.warning("Route save failed, attempting to delete inserted run for compensation", category: .database)
+            
+            do {
+                try await client
+                    .from("runs")
+                    .delete()
+                    .eq("id", value: insertedRun.id.uuidString)
+                    .execute()
+                
+                logger.info("Successfully deleted run during compensation", category: .database)
+            } catch let deleteError {
+                logger.error("Failed to delete run during compensation - data inconsistency possible", error: deleteError, category: .database)
+                // Still throw the original route error, but log the delete failure
+            }
+            
+            logger.error("Failed to save route in orchestrated operation", error: error, category: .database)
+            throw error
+        }
+    }
+    
+    // MARK: Utilities
+    
+    // Get current user's JWT token for backend API calls
+    func getCurrentUserToken() async -> String? {
+        do {
+            let session = try await client.auth.session
+            return session.accessToken
+        } catch {
+            logger.warning("Failed to get current user token: \(error.localizedDescription)", category: .authentication)
+            return nil
+        }
+    }
+    
+    // MARK: Errors
+    
+    private func handleOAuthError(_ error: OAuthError) async {
+        // Handle different types of OAuth errors
+        switch error {
+        case .invalidScheme:
+            logger.critical("OAuth callback with invalid URL scheme detected", category: .security)
+        case .authorizationDenied(let code):
+            logger.warning("User denied OAuth authorization: \(code)", category: .authentication)
+        case .sessionCreationFailed(let underlyingError):
+            logger.error("Failed to create session from OAuth callback", error: underlyingError, category: .authentication)
+        }
+        
+        // Notify UI about the error
+        await MainActor.run {
+            // Could emit error notifications here for UI handling
+        }
+    }
+    
+    // Transforms database errors into user-friendly errors
+    private func transformDatabaseError(_ error: Error, context: String) -> DatabaseError {
+        let errorMessage = error.localizedDescription.lowercased()
+        
+        // Check for constraint violations
+        if errorMessage.contains("unique") || errorMessage.contains("duplicate") {
+            if errorMessage.contains("external_id") {
+                return .constraintViolation("A run with this external ID already exists")
+            }
+            return .constraintViolation("Data already exists")
+        }
+        
+        // Check for foreign key violations
+        if errorMessage.contains("foreign key") || errorMessage.contains("reference") {
+            return .constraintViolation("Referenced data not found")
+        }
+        
+        // Check for validation errors
+        if errorMessage.contains("check constraint") || errorMessage.contains("invalid") {
+            return .validationFailed("Data validation failed: \(error.localizedDescription)")
+        }
+        
+        // Check for permission errors
+        if errorMessage.contains("permission") || errorMessage.contains("policy") {
+            return .permissionDenied("You don't have permission to perform this action")
+        }
+        
+        // Network/connection errors
+        if errorMessage.contains("network") || errorMessage.contains("connection") || errorMessage.contains("timeout") {
+            return .networkError("Network connection failed. Please try again.")
+        }
+        
+        // Generic database error
+        return .unknownError("Failed \(context): \(error.localizedDescription)")
     }
     
     private func transformError(_ error: Error, email: String, username: String) -> SignUpError {
@@ -478,6 +658,44 @@ enum OAuthError: LocalizedError {
             return "Please try signing in again and allow the OAuth authorization."
         case .sessionCreationFailed:
             return "Please try again. If the problem persists, check your internet connection."
+        }
+    }
+}
+
+enum DatabaseError: LocalizedError {
+    case insertFailed(String)
+    case constraintViolation(String)
+    case validationFailed(String)
+    case permissionDenied(String)
+    case networkError(String)
+    case unknownError(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .insertFailed(let message),
+             .constraintViolation(let message),
+             .validationFailed(let message),
+             .permissionDenied(let message),
+             .networkError(let message),
+             .unknownError(let message):
+            return message
+        }
+    }
+    
+    var recoverySuggestion: String? {
+        switch self {
+        case .insertFailed:
+            return "Please check your data and try again."
+        case .constraintViolation:
+            return "Please check for duplicate or invalid data."
+        case .validationFailed:
+            return "Please verify your input meets the requirements."
+        case .permissionDenied:
+            return "Please sign in and ensure you have the necessary permissions."
+        case .networkError:
+            return "Please check your internet connection and try again."
+        case .unknownError:
+            return "Please try again. If the problem persists, contact support."
         }
     }
 }

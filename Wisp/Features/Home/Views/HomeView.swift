@@ -43,6 +43,12 @@ struct HomeView: View {
             logger.info("HomeView appeared")
             viewModel.loadData()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .runSaved)) { _ in
+            logger.info("Received runSaved notification - refreshing data")
+            Task {
+                await viewModel.refreshData()
+            }
+        }
         .sheet(isPresented: $showingCreateChallenge) {
             CreateChallengeView()
         }
