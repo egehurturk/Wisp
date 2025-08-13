@@ -77,6 +77,12 @@ struct RunsView: View {
         .onAppear {
             viewModel.loadRuns()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .runSaved)) { _ in
+            logger.info("Received runSaved notification - refreshing runs")
+            Task {
+                await viewModel.loadRuns()
+            }
+        }
         .onChange(of: searchText) { newValue in
             viewModel.searchText = newValue
         }

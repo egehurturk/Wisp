@@ -1,5 +1,7 @@
 * Cache latest run in homepage --> performance improvements
 * Cache runs in runs list page 
+    - it fetches from strava api every time
+    - use cache!!
 * UI Improvements:
     * Runs page
     * Runs card
@@ -10,7 +12,7 @@
     * Chart improvement
         * Make it clickable, when clicked on the bar, it should show the respective run
 * Strava OAuth issue
-
+* Run view refresh it makes error
 
 
 * Work on actually saving runs from the app to DB

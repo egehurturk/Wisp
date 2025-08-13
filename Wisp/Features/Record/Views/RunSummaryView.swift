@@ -51,14 +51,6 @@ struct RunSummaryView: View {
             }
             .navigationTitle("Run Summary")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        handleRunSave()
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
         }
         .navigationBarHidden(true)
         .alert("Discard Run", isPresented: $showingDiscardAlert) {
@@ -328,22 +320,39 @@ struct RunSummaryView: View {
     // MARK: - Action Buttons
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            // Save button
+            // Save button with loading state
             Button(action: {
                 logger.info("Save run tapped")
-                viewModel.stopGPSTracking()
                 onSave()
             }) {
-                Text("Save Activity")
-                    .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.blue)
-                    )
+                HStack(spacing: 8) {
+                    if viewModel.isSaving {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.8)
+                    }
+                    
+                    Text(viewModel.isSaving ? "Saving..." : "Save Activity")
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(viewModel.isSaving ? Color.blue.opacity(0.6) : Color.blue)
+                )
+            }
+            .disabled(viewModel.isSaving)
+            
+            // Show error message if save failed
+            if let error = viewModel.saveError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
             }
             
             // Discard button
@@ -361,6 +370,7 @@ struct RunSummaryView: View {
                             .fill(Color(.systemGray6))
                     )
             }
+            .disabled(viewModel.isSaving) // Disable during save
         }
     }
 }
