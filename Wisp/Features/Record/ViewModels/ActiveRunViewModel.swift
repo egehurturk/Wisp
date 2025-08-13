@@ -214,8 +214,6 @@ final class ActiveRunViewModel: ObservableObject {
         
         // Stop GPS tracking
         gpsManager.stopTracking()
-        
-        // TODO: Save run data with actual GPS route and weather
     }
     
     func addLap() {

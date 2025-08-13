@@ -332,7 +332,7 @@ struct ActiveRunView: View {
     private var controlButtonsSection: some View {
         HStack(spacing: 40) {
             // Lap button
-            StravaControlButton(
+            ControlButton(
                 icon: "arrow.clockwise",
                 color: .white.opacity(0.2),
                 size: .medium
@@ -341,7 +341,7 @@ struct ActiveRunView: View {
             }
             
             // Pause/Resume button
-            StravaControlButton(
+            ControlButton(
                 icon: viewModel.isRunning ? "pause.fill" : "play.fill",
                 color: .red,
                 size: .large
@@ -350,7 +350,7 @@ struct ActiveRunView: View {
             }
             
             // Finish button
-            StravaControlButton(
+            ControlButton(
                 icon: "stop.fill",
                 color: .white.opacity(0.2),
                 size: .medium
@@ -576,7 +576,7 @@ private struct StravaStatCard: View {
 }
 
 // MARK: - Strava Control Button
-private struct StravaControlButton: View {
+private struct ControlButton: View {
     let icon: String
     let color: Color
     let size: ButtonSize
