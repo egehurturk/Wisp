@@ -1,8 +1,10 @@
 * Cache latest run in homepage --> performance improvements
 * Cache runs in runs list page 
-    - it fetches from strava api every time
+    - it fetches from DB every time ??
     - use cache!!
-* RunSummaryView map issue
+
+* Add a button that says "sync to strava" in run summary view
+* Bug in timers (maybe elapsed time = elapsed time + moving time oluyor?)
 * UI Improvements:
     * Runs page
     * Runs card
@@ -15,10 +17,10 @@
 * Strava OAuth issue
 * Run view refresh it makes error
 
-
-* Work on actually saving runs from the app to DB
-* Integrate Apple Health
+* Run deletion
 * Integrate Weather data
+* Detailed run page
+* Integrate Apple Health
 * Ghosts
 * User profile
 

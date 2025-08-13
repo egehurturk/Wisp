@@ -24,6 +24,9 @@ struct RunSummaryView: View {
                     // Main stats section
                     mainStatsSection
                     
+                    // Map section
+                    mapSection
+                    
                     // Run title input
                     runTitleInput
                     
@@ -32,8 +35,7 @@ struct RunSummaryView: View {
                         ghostComparisonSection
                     }
                     
-                    // Map section
-                    mapSection
+                    
                     
                     // Additional stats
                     additionalStatsSection
@@ -163,21 +165,17 @@ struct RunSummaryView: View {
     // MARK: - Map Section
     private var mapSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Route")
-                .font(.headline)
-                .foregroundColor(.primary)
             
             ZStack {
                 if !runData.route.isEmpty {
-                    Map(coordinateRegion: .constant(MKCoordinateRegion(
-                        center: runData.route.first ?? CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                    )))
+                    
+//                    Map(coordinateRegion: .constant(MKCoordinateRegion(
+//                        center: runData.route.first ?? CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+//                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+//                    )))
+                    RouteMapPolyline(coordinates: runData.route)
                     .frame(height: 200)
                     .cornerRadius(12)
-                    .overlay(
-                        RoutePathOverlay(coordinates: runData.route)
-                    )
                 } else {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color(.systemGray6))

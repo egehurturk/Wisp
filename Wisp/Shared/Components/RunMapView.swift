@@ -72,7 +72,7 @@ struct RouteMapPolyline: View {
     @State private var camera: MapCameraPosition = .automatic
 
     init(coordinates: [CLLocationCoordinate2D],
-         interaction: MapInteractionModes = [.all],
+         interaction: MapInteractionModes = .all,
          lineWidth: CGFloat = 4) {
         self.coordinates = coordinates
         self.interaction = interaction
@@ -110,7 +110,7 @@ struct RouteMapPolyline: View {
             MapPolyline(coordinates: coordinates)
                 .stroke(.blue, lineWidth: lineWidth)
         }
-        .allowsHitTesting(false) // same behavior as your overlay
+        .allowsHitTesting(true) // same behavior as your overlay
     }
 }
 

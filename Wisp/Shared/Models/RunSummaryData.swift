@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 
 struct RunSummaryData {
     let distance: Double
@@ -11,6 +12,10 @@ struct RunSummaryData {
     let route: [CLLocationCoordinate2D]
     let laps: [LapData]
     let weatherData: WeatherData?
+    
+    var mapPolyline: MKPolyline {
+        MKPolyline(coordinates: route, count: route.count)
+    }
     
     // For backward compatibility with existing time usage
     var time: TimeInterval {

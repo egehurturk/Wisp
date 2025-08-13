@@ -37,8 +37,14 @@ struct RunCard: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(run.title ?? "Run")
                             .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .fontWeight(.bold)
                             .lineLimit(1)
+                        
+                        if let desc = run.description {
+                            Text(desc)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
                         
                         Text(run.startedAt, style: .date)
                             .font(.caption)
@@ -92,9 +98,10 @@ struct RunCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(.ultraThinMaterial)
         )
+        .background(GradientBackground())
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(.blue.opacity(0.2), lineWidth: 1)
+                .stroke(.blue.opacity(0.0), lineWidth: 1)
         )
         .onAppear {
             loadRouteData()
