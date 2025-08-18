@@ -18,6 +18,9 @@
 * Strava OAuth issue
 * Run view refresh it makes error
 
+* Maybes:
+    * Put locationString as a column in the db
+
 * Integrate Weather data
 * Integrate Apple Health
 * Ghosts

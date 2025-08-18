@@ -22,10 +22,21 @@ struct RunCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Title and menu section
             HStack {
-                Text(run.title ?? "Run")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
+                HStack(spacing: 8) {
+                    Text(run.title ?? "Run")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    // Strava badge
+                    if run.dataSource?.lowercased() == "strava" {
+                        Image("strava-badge") // Replace with your actual image name
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 20, height: 20)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                }
                 
                 Spacer()
                 
