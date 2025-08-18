@@ -10,6 +10,7 @@ struct RunCard: View {
     @State private var isLoadingRoute = false
     @State private var showingDeleteConfirmation = false
     @State private var isPerformingAction = false
+    @State private var locationString = "Run Location"
     private let logger = Logger.ui
     private let supabaseManager = SupabaseManager.shared
     
@@ -18,7 +19,97 @@ struct RunCard: View {
     
     // MARK: - Body
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Title and menu section
+            HStack {
+                Text(run.title ?? "Run")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                // Three-dots menu
+                Menu {
+                    Button(action: {
+                        handleChangeVisibility()
+                    }) {
+                        Label("Change visibility", systemImage: "eye")
+                    }
+                    .disabled(true) // Not implemented yet
+                    
+                    Button(role: .destructive, action: {
+                        showingDeleteConfirmation = true
+                    }) {
+                        Label("Delete run", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.blue)
+                }
+                .disabled(isPerformingAction)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            
+            Divider()
+                .padding(.horizontal, 16)
+            
+            // Information section
+            VStack(alignment: .leading, spacing: 6) {
+                // Date/time and location on same row
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text(formatDateAndTime(run.startedAt))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "location")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text(locationString)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                // Weather
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "wind")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("Windy")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "thermometer")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("19°C")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            
+            Divider()
+                .padding(.horizontal, 16)
+            
             // Map area showing GPS route
             RunMapView(route: route)
                 .frame(height: 200)
@@ -35,105 +126,47 @@ struct RunCard: View {
                     }
                 )
             
-            // Run Information
-            VStack(alignment: .leading, spacing: 12) {
-                // Header with date and distance
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(run.title ?? "Run")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .lineLimit(1)
-                        
-                        if let desc = run.description {
-                            Text(desc)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                        }
-                        
-                        Text(run.startedAt, style: .date)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Text(run.formattedDistance)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                    }
-                    
-                    Spacer()
-                    
-                    HStack(spacing: 8) {
-                        // Replay button
-                        WispButton(
-                            title: "",
-                            style: .icon,
-                            icon: "play.fill"
-                        ) {
-                            handleReplayTap()
-                        }
-                        .disabled(isPerformingAction)
-                        
-                        // Three-dots menu
-                        Menu {
-                            Button(action: {
-                                handleChangeVisibility()
-                            }) {
-                                Label("Change visibility", systemImage: "eye")
-                            }
-                             
-                            
-                            Button(role: .destructive, action: {
-                                showingDeleteConfirmation = true
-                            }) {
-                                Label("Delete run", systemImage: "trash")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.primary)
-                                .frame(width: 32, height: 32)
-                                .background(
-                                    Circle()
-                                        .fill(.ultraThinMaterial)
-                                )
-                        }
-                        .disabled(isPerformingAction)
-                    }
-                }
+            Divider()
+                .padding(.horizontal, 16)
+            
+            // Statistics section
+            HStack(spacing: 0) {
+                StatView(
+                    title: "Distance",
+                    value: run.formattedDistance,
+                    icon: "location"
+                )
+                .frame(maxWidth: .infinity)
                 
-                // Run stats
-                HStack(spacing: 16) {
-                    StatView(
-                        title: "Pace",
-                        value: run.formattedPace,
-                        icon: "timer"
-                    )
-                    
-                    StatView(
-                        title: "Time",
-                        value: run.formattedDuration,
-                        icon: "clock"
-                    )
-                    
-                    if let heartRate = run.averageHeartRate {
-                        StatView(
-                            title: "HR",
-                            value: "\(Int(heartRate)) bpm",
-                            icon: "heart.fill"
-                        )
-                    }
-                }
+                StatView(
+                    title: "Time", 
+                    value: run.formattedDuration,
+                    icon: "clock"
+                )
+                .frame(maxWidth: .infinity)
                 
-                // Analysis text or other info can go here in the future
+                StatView(
+                    title: "Pace",
+                    value: run.formattedPace,
+                    icon: "speedometer"
+                )
+                .frame(maxWidth: .infinity)
+                
+                if let heartRate = run.averageHeartRate {
+                    StatView(
+                        title: "Avg HR",
+                        value: "\(Int(heartRate))",
+                        icon: "heart.fill"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-        )
         .onAppear {
             loadRouteData()
+            loadLocationData()
         }
         .overlay(
             // Progress overlay when performing actions
@@ -144,7 +177,6 @@ struct RunCard: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
             }
         )
@@ -161,6 +193,13 @@ struct RunCard: View {
     }
     
     // MARK: - Private Methods
+    
+    private func formatDateAndTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd MMM yyyy 'at' HH:mm"
+        return formatter.string(from: date)
+    }
+    
     private func handleReplayTap() {
         logger.info("Replay button tapped for run: \(run.id)")
         // TODO: Navigate to replay screen
@@ -204,6 +243,21 @@ struct RunCard: View {
             }
         }
     }
+    
+    private func loadLocationData() {
+        // Only load location if run has location data
+        guard run.hasLocation else {
+            locationString = "Unknown Location"
+            return
+        }
+        
+        Task {
+            let resolvedLocation = await run.resolveLocationString()
+            await MainActor.run {
+                self.locationString = resolvedLocation
+            }
+        }
+    }
 }
 
 // MARK: - Supporting Views
@@ -215,20 +269,21 @@ private struct StatView: View {
     let icon: String
     
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.caption)
-                .foregroundColor(.blue)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption2)
+        VStack(spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.caption)
                     .foregroundColor(.secondary)
                 
-                Text(value)
+                Text(title)
                     .font(.caption)
-                    .fontWeight(.semibold)
+                    .foregroundColor(.secondary)
             }
+            
+            Text(value)
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
         }
     }
 }

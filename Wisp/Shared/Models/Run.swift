@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 
 struct Run: Identifiable, Codable, Equatable {
     let id: UUID
@@ -94,6 +95,51 @@ struct Run: Identifiable, Codable, Equatable {
 }
 
 extension Run {
+    
+    // Synchronous fallback - returns coordinate string or placeholder
+    var locationString: String {
+        guard let lat = startLatitude, let lon = startLongitude else {
+            return "Unknown Location"
+        }
+        
+        // For now, return a simple coordinate-based location or placeholder
+        // This will be replaced with proper async geocoding in the UI layer
+        return "Run Location"
+    }
+    
+    // Async method for proper location resolution
+    func resolveLocationString() async -> String {
+        guard let lat = startLatitude, let lon = startLongitude else {
+            return "Unknown Location"
+        }
+        
+        let location = CLLocation(latitude: lat, longitude: lon)
+        let geocoder = CLGeocoder()
+        
+        do {
+            let placemarks = try await geocoder.reverseGeocodeLocation(location)
+            if let placemark = placemarks.first {
+                let city = placemark.locality ?? ""
+                let country = placemark.country ?? ""
+                
+                if !city.isEmpty && !country.isEmpty {
+                    return "\(city), \(country)"
+                } else if !city.isEmpty {
+                    return city
+                } else if let administrativeArea = placemark.administrativeArea {
+                    return administrativeArea
+                } else if !country.isEmpty {
+                    return country
+                }
+            }
+        } catch {
+            // Silent failure, return coordinate-based fallback
+            return String(format: "%.4f, %.4f", lat, lon)
+        }
+        
+        return "Run Location"
+    }
+    
     var distanceInKilometers: Double {
         distance / 1000.0
     }
