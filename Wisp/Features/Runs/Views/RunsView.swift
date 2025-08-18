@@ -83,6 +83,12 @@ struct RunsView: View {
                 await viewModel.loadRuns()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .runDeleted)) { _ in
+            logger.info("Received runDeleted notification - refreshing runs")
+            Task {
+                await viewModel.loadRuns()
+            }
+        }
         .onChange(of: searchText) { newValue in
             viewModel.searchText = newValue
         }
@@ -150,8 +156,10 @@ struct RunsView: View {
             } else {
                 LazyVStack(spacing: 16) {
                     ForEach(viewModel.filteredAndSortedRuns) { run in
-                        RunCard(run: run)
-                            .padding(.horizontal)
+                        RunCard(run: run) { runToDelete in
+                            await viewModel.deleteRun(runToDelete)
+                        }
+                        .padding(.horizontal)
                     }
                 }
             }

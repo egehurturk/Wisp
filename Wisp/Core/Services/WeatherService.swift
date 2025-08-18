@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 import Combine
 
-/// Service for fetching weather data for runs
+// Service for fetching weather data for runs
 @MainActor
 final class WeatherService: ObservableObject {
     
@@ -23,7 +23,7 @@ final class WeatherService: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Fetch current weather data for a given location
+    // Fetch current weather data for a given location
     func fetchCurrentWeather(for coordinate: CLLocationCoordinate2D) async throws -> WeatherData {
         logger.info("Fetching current weather for coordinate: \(coordinate.latitude), \(coordinate.longitude)")
         
@@ -43,7 +43,7 @@ final class WeatherService: ObservableObject {
         return weatherData
     }
     
-    /// Fetch historical weather data for a specific date and location
+    // Fetch historical weather data for a specific date and location
     func fetchHistoricalWeather(for coordinate: CLLocationCoordinate2D, date: Date) async throws -> WeatherData {
         logger.info("Fetching historical weather for coordinate: \(coordinate.latitude), \(coordinate.longitude) at date: \(date)")
         
@@ -76,7 +76,7 @@ final class WeatherService: ObservableObject {
         )
     }
     
-    /// Fetch weather data for run completion (called when run ends)
+    // Fetch weather data for run completion (called when run ends)
     func fetchWeatherForRunCompletion(startLocation: CLLocationCoordinate2D, startTime: Date) async throws -> WeatherData {
         logger.info("Fetching weather for run completion")
         
@@ -92,7 +92,7 @@ final class WeatherService: ObservableObject {
     
     // MARK: - Private Methods
     
-    /// Fetch weather data from OpenWeatherMap API
+    // Fetch weather data from OpenWeatherMap API
     private func fetchFromOpenWeatherMap(coordinate: CLLocationCoordinate2D) async throws -> WeatherData {
         let urlString = "\(APIConfig.baseURL)/weather?lat=\(coordinate.latitude)&lon=\(coordinate.longitude)&appid=\(APIConfig.openWeatherMapAPIKey)&units=metric"
         
@@ -124,7 +124,7 @@ final class WeatherService: ObservableObject {
         }
     }
     
-    /// Create mock weather data when API is unavailable or for testing
+    // Create mock weather data when API is unavailable or for testing
     private func createMockWeatherData(for coordinate: CLLocationCoordinate2D, timestamp: Date = Date()) -> WeatherData {
         logger.info("Creating mock weather data")
         

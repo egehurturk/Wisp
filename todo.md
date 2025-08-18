@@ -2,13 +2,14 @@
 * Cache runs in runs list page 
     - it fetches from DB every time ??
     - use cache!!
-
+* When sync with strava, update values if there are already existing runs with the same id
 * Add a button that says "sync to strava" in run summary view
-* Bug in timers (maybe elapsed time = elapsed time + moving time oluyor?)
+* Bug in timers (maybe elapsed time = elapsed time + moving time oluyor?) 
 * UI Improvements:
     * Runs page
     * Runs card
-        * Background
+        * make map zoom to the path closely
+        * Detailed run page
         * Replay runs page
         * Card data make it better, add weather
         * Add a badge to show if it is imported from strava
@@ -17,12 +18,14 @@
 * Strava OAuth issue
 * Run view refresh it makes error
 
-* Run deletion
 * Integrate Weather data
-* Detailed run page
 * Integrate Apple Health
 * Ghosts
+    - Ghost CRUD
+    - Ghost 
 * User profile
+* Settings page
+* Run unit preferences
 
 
 
