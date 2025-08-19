@@ -25,7 +25,9 @@ struct Run: Identifiable, Codable, Equatable {
     let startedAt: Date
     let timezone: String?
     let paceSplits: [Double]?      
-    let heartRateData: [Int]?      
+    let heartRateData: [Int]?
+    let weatherTemperature: Double?
+    let weatherDescription: String?
     let createdAt: Date?
     let updatedAt: Date?
     
@@ -54,6 +56,8 @@ struct Run: Identifiable, Codable, Equatable {
         case timezone
         case paceSplits = "pace_splits"
         case heartRateData = "heart_rate_data"
+        case weatherTemperature = "weather_temperature"
+        case weatherDescription = "weather_description"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
@@ -88,6 +92,9 @@ struct Run: Identifiable, Codable, Equatable {
         
         // Handle heart rate data gracefully - ignore if decode fails
         heartRateData = try? container.decodeIfPresent([Int].self, forKey: .heartRateData)
+        
+        weatherTemperature = try container.decodeIfPresent(Double.self, forKey: .weatherTemperature)
+        weatherDescription = try container.decodeIfPresent(String.self, forKey: .weatherDescription)
         
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)

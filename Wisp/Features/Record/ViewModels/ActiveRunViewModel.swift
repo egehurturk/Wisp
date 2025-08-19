@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import CoreLocation
+import WeatherKit
 import MapKit
 
 /// View model for the Active Run screen
@@ -52,10 +53,10 @@ final class ActiveRunViewModel: ObservableObject {
     // Services
     private let logger = Logger.general
     private let gpsManager = GPSManager()
-    private let weatherService = WeatherService()
+    private let weatherService = WeatherManager()
     private let supabaseManager = SupabaseManager.shared
     
-    private var startWeatherData: WeatherData?
+    private var startWeatherData: CurrentWeather?
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
@@ -268,8 +269,7 @@ final class ActiveRunViewModel: ObservableObject {
                 currentHeartRate: currentHeartRate,
                 currentCadence: currentCadence,
                 route: userPath,
-                laps: laps,
-                weatherData: startWeatherData
+                laps: laps
             )
         }
         
@@ -281,8 +281,7 @@ final class ActiveRunViewModel: ObservableObject {
             currentHeartRate: currentHeartRate,
             currentCadence: currentCadence,
             route: userPath,
-            laps: laps,
-            weatherData: startWeatherData
+            laps: laps
         )
     }
     
@@ -379,7 +378,9 @@ final class ActiveRunViewModel: ObservableObject {
             startedAt: startTime,
             timezone: TimeZone.current.identifier,
             paceSplits: nil, // Could be implemented with lap data
-            heartRateData: heartRateArray
+            heartRateData: heartRateArray,
+            weatherTemperature: startWeatherData?.temperature.value,
+            weatherDescription: startWeatherData?.symbolName
         )
     }
     
@@ -422,17 +423,19 @@ final class ActiveRunViewModel: ObservableObject {
     private func fetchStartWeatherData() {
         Task {
             do {
+                logger.info("Starting fetching weather")
                 // Use current region center as start location
                 let startLocation = region.center
                 let weather = try await weatherService.fetchCurrentWeather(for: startLocation)
                 
-                await MainActor.run {
-                    self.startWeatherData = weather
-                    self.logger.info("Weather data fetched for run start")
+                if let weatherCurrent = weather {
+                    await MainActor.run {
+                        self.startWeatherData = weatherCurrent
+                        self.logger.info("Weather data fetched for run start: \(weatherCurrent.temperature.value)")
+                    }
                 }
             } catch {
                 logger.error("Failed to fetch start weather data", error: error)
-                // Continue without weather data
             }
         }
     }

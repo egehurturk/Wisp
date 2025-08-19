@@ -8,20 +8,17 @@
 * UI Improvements:
     * Runs page
     * Runs card
-        * make map zoom to the path closely
         * Detailed run page when clicked on
         * Replay runs page
     * Chart improvement
         * Make it clickable, when clicked on the bar, it should show the respective run
         * Chart should always start on Monday
+        * No data on week, it should show gridlines (now it doesn't)
 * Strava OAuth issue
 * Run view refresh it makes error
 
 * Maybes:
     * Put locationString as a column in the db
-
-WORKING ON: * Integrate Weather data
-
 
 * Integrate Apple Health
 * Ghosts

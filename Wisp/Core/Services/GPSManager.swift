@@ -115,6 +115,7 @@ final class GPSManager: NSObject, ObservableObject {
         }
         
         guard CLLocationManager.locationServicesEnabled() else {
+            // TODO: This method can cause UI unresponsiveness if invoked on the main thread. Instead, consider waiting for the `-locationManagerDidChangeAuthorization:` callback and checking `authorizationStatus` first.
             logger.error("Location services are disabled")
             trackingError = .locationServicesDisabled
             return

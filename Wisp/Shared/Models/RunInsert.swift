@@ -24,6 +24,8 @@ struct RunInsert: Codable {
     let timezone: String?
     let paceSplits: [Double]?
     let heartRateData: [Int]?
+    let weatherTemperature: Double?
+    let weatherDescription: String?
     
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
@@ -49,6 +51,8 @@ struct RunInsert: Codable {
         case timezone
         case paceSplits = "pace_splits"
         case heartRateData = "heart_rate_data"
+        case weatherTemperature = "weather_temperature"
+        case weatherDescription = "weather_description"
     }
     
     init(
@@ -74,7 +78,9 @@ struct RunInsert: Codable {
         startedAt: Date,
         timezone: String? = nil,
         paceSplits: [Double]? = nil,
-        heartRateData: [Int]? = nil
+        heartRateData: [Int]? = nil,
+        weatherTemperature: Double? = nil,
+        weatherDescription: String? = nil
     ) {
         self.userId = userId
         self.externalId = externalId
@@ -99,6 +105,8 @@ struct RunInsert: Codable {
         self.timezone = timezone
         self.paceSplits = paceSplits
         self.heartRateData = heartRateData
+        self.weatherDescription = weatherDescription
+        self.weatherTemperature = weatherTemperature
     }
 }
 

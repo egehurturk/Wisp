@@ -23,11 +23,6 @@ struct RunCard: View {
             // Title and menu section
             HStack {
                 HStack(spacing: 8) {
-                    Text(run.title ?? "Run")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
                     // Strava badge
                     if run.dataSource?.lowercased() == "strava" {
                         Image("strava-badge") // Replace with your actual image name
@@ -36,6 +31,12 @@ struct RunCard: View {
                             .frame(width: 20, height: 20)
                             .clipShape(RoundedRectangle(cornerRadius: 4))
                     }
+                    
+                    Text(run.title ?? "Run")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
                 }
                 
                 Spacer()
@@ -93,25 +94,27 @@ struct RunCard: View {
                 }
                 
                 // Weather
-                HStack(spacing: 8) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "wind")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                if let weatherDescription = run.weatherDescription, let temp = run.weatherTemperature {
+                    HStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Image(systemName: weatherDescription)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Text(WeatherManager.weatherDescriptionFromIconShort(weatherIcon: weatherDescription))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
                         
-                        Text("Windy")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: "thermometer")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Text("19°C")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 4) {
+                            Image(systemName: "thermometer")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Text(WeatherManager.formattedTemperature(temperature: temp))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             }
@@ -120,6 +123,8 @@ struct RunCard: View {
             
             Divider()
                 .padding(.horizontal, 16)
+            
+            
             
             // Map area showing GPS route
             RunMapView(route: route)
@@ -138,7 +143,7 @@ struct RunCard: View {
                 )
             
             Divider()
-                .padding(.horizontal, 16)
+                .padding(.top, 6)
             
             // Statistics section
             HStack(spacing: 0) {
