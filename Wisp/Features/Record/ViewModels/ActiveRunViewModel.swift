@@ -428,7 +428,7 @@ final class ActiveRunViewModel: ObservableObject {
                 
                 await MainActor.run {
                     self.startWeatherData = weather
-                    self.logger.info("Weather data fetched for run start: \(weather.formattedTemperature), \(weather.condition.readableDescription)")
+                    self.logger.info("Weather data fetched for run start")
                 }
             } catch {
                 logger.error("Failed to fetch start weather data", error: error)
