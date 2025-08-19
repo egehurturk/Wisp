@@ -476,6 +476,70 @@ class SupabaseManager: ObservableObject {
         }
     }
     
+    // MARK: - Run Delete Methods
+    
+    /// Deletes a single run owned by userId. Cascades to run_routes via FK.
+    func deleteRun(id runId: UUID, for userId: UUID) async throws {
+        logger.info("Deleting run with id: \(runId.uuidString) for user: \(userId.uuidString)", category: .database)
+        
+        do {
+            try await client
+                .from("runs")
+                .delete()
+                .eq("id", value: runId.uuidString)
+                .eq("user_id", value: userId.uuidString)
+                .execute()
+            
+            logger.info("Successfully deleted run with id: \(runId.uuidString)", category: .database)
+            
+        } catch {
+            logger.error("Failed to delete run", error: error, category: .database)
+            throw transformDatabaseError(error, context: "deleting run")
+        }
+    }
+    
+    /// Deletes multiple runs owned by userId in one call.
+    func deleteRuns(ids runIds: [UUID], for userId: UUID) async throws {
+        guard !runIds.isEmpty else { return }
+        
+        logger.info("Deleting \(runIds.count) runs for user: \(userId.uuidString)", category: .database)
+        
+        do {
+            let runIdStrings = runIds.map { $0.uuidString }
+            try await client
+                .from("runs")
+                .delete()
+                .in("id", values: runIdStrings)
+                .eq("user_id", value: userId.uuidString)
+                .execute()
+            
+            logger.info("Successfully deleted \(runIds.count) runs", category: .database)
+            
+        } catch {
+            logger.error("Failed to delete runs batch", error: error, category: .database)
+            throw transformDatabaseError(error, context: "deleting runs batch")
+        }
+    }
+    
+    /// Optional: direct route delete by run_id (rarely needed due to cascade).
+    func deleteRunRoute(runId: UUID) async throws {
+        logger.info("Deleting route for run: \(runId.uuidString)", category: .database)
+        
+        do {
+            try await client
+                .from("run_routes")
+                .delete()
+                .eq("run_id", value: runId.uuidString)
+                .execute()
+            
+            logger.info("Successfully deleted route for run: \(runId.uuidString)", category: .database)
+            
+        } catch {
+            logger.error("Failed to delete run route", error: error, category: .database)
+            throw transformDatabaseError(error, context: "deleting run route")
+        }
+    }
+    
     // MARK: Utilities
     
     // Get current user's JWT token for backend API calls

@@ -40,11 +40,6 @@ struct RunSummaryView: View {
                     // Additional stats
                     additionalStatsSection
                     
-                    // Weather section (if available)
-                    if let weatherData = runData.weatherData {
-                        weatherSection(weatherData)
-                    }
-                    
                     // Action buttons
                     actionButtons
                         .padding(.bottom, 40)
@@ -224,52 +219,6 @@ struct RunSummaryView: View {
                     .fill(Color(.systemGray6))
             )
         }
-    }
-    
-    // MARK: - Weather Section
-    private func weatherSection(_ weatherData: WeatherData) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Weather")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            HStack(spacing: 16) {
-                // Weather icon and temperature
-                HStack(spacing: 8) {
-                    Image(systemName: weatherData.condition.systemIconName)
-                        .font(.title2)
-                        .foregroundColor(weatherData.condition.color)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(weatherData.formattedTemperature)
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        
-                        Text(weatherData.condition.readableDescription)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                // Additional weather info
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Feels like \(weatherData.formattedFeelsLike)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text(weatherData.humidityPercentage + " humidity")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-        )
     }
     
     // MARK: - Ghost Comparison Section
@@ -501,8 +450,7 @@ private struct RoutePathOverlay: View {
             currentHeartRate: 165,
             currentCadence: 180,
             route: [],
-            laps: [],
-            weatherData: WeatherData.mockData[0]
+            laps: []
         ),
         viewModel: ActiveRunViewModel(),
         onSave: { _, _ in },

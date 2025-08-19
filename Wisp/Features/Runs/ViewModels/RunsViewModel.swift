@@ -160,6 +160,49 @@ final class RunsViewModel: ObservableObject {
         selectedSortOption = .dateDescending
     }
     
+    /// Delete a run
+    @MainActor
+    func deleteRun(_ run: Run) async {
+        logger.info("Deleting run: \(run.id)")
+        
+        do {
+            guard let userId = supabaseManager.currentUser?.id else {
+                logger.warning("No authenticated user found when deleting run")
+                errorMessage = "Please sign in to delete runs."
+                return
+            }
+            
+            // Delete from database
+            try await supabaseManager.deleteRun(id: run.id, for: userId)
+            
+            // Remove from local state immediately
+            allRuns.removeAll { $0.id == run.id }
+            updateFilteredRuns()
+            
+            // Post notification for other views to refresh
+            NotificationCenter.default.post(name: .runDeleted, object: nil)
+            
+            logger.info("Successfully deleted run: \(run.id)")
+            
+        } catch {
+            logger.error("Failed to delete run", error: error)
+            
+            // Map error to user-friendly message
+            if let dbError = error as? DatabaseError {
+                switch dbError {
+                case .permissionDenied(let message):
+                    errorMessage = message
+                case .networkError(let message):
+                    errorMessage = message
+                default:
+                    errorMessage = "Failed to delete run. Please try again."
+                }
+            } else {
+                errorMessage = "Failed to delete run. Please try again."
+            }
+        }
+    }
+    
     // MARK: - Private Methods
     
     private func setupBindings() {

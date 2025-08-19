@@ -113,6 +113,54 @@ final class HomeViewModel: ObservableObject {
         }
     }
     
+    /// Delete a run and refresh latest run
+    @MainActor
+    func deleteRun(_ run: Run) async {
+        logger.info("Deleting run from home view: \(run.id)")
+        
+        do {
+            guard let userId = supabaseManager.currentUser?.id else {
+                logger.warning("No authenticated user found when deleting run")
+                errorMessage = "Please sign in to delete runs."
+                return
+            }
+            
+            // Delete from database
+            try await supabaseManager.deleteRun(id: run.id, for: userId)
+            
+            // Remove from local state
+            allRuns.removeAll { $0.id == run.id }
+            
+            // Update latest run
+            latestRun = allRuns.max(by: { $0.startedAt < $1.startedAt })
+            
+            // Refresh chart data
+            weeklyChartData = generateWeeklyChartData(from: allRuns, weekOffset: currentWeekOffset)
+            
+            // Post notification for other views to refresh
+            NotificationCenter.default.post(name: .runDeleted, object: nil)
+            
+            logger.info("Successfully deleted run from home view: \(run.id)")
+            
+        } catch {
+            logger.error("Failed to delete run from home view", error: error)
+            
+            // Map error to user-friendly message
+            if let dbError = error as? DatabaseError {
+                switch dbError {
+                case .permissionDenied(let message):
+                    errorMessage = message
+                case .networkError(let message):
+                    errorMessage = message
+                default:
+                    errorMessage = "Failed to delete run. Please try again."
+                }
+            } else {
+                errorMessage = "Failed to delete run. Please try again."
+            }
+        }
+    }
+    
     // MARK: - Private Methods
     
     /// Load latest run for home screen

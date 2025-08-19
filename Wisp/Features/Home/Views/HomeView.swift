@@ -49,6 +49,12 @@ struct HomeView: View {
                 await viewModel.refreshData()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .runDeleted)) { _ in
+            logger.info("Received runDeleted notification - refreshing data")
+            Task {
+                await viewModel.refreshData()
+            }
+        }
         .sheet(isPresented: $showingCreateChallenge) {
             CreateChallengeView()
         }
@@ -293,7 +299,9 @@ struct HomeView: View {
                     .padding()
             } else if let latestRun = viewModel.latestRun {
                 VStack(alignment: .leading, spacing: 12) {
-                    RunCard(run: latestRun)
+                    RunCard(run: latestRun) { runToDelete in
+                        await viewModel.deleteRun(runToDelete)
+                    }
                     
                     // Analysis text
                     Text(viewModel.analysisText)

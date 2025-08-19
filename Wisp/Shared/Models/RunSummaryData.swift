@@ -11,7 +11,6 @@ struct RunSummaryData {
     let currentCadence: Int?
     let route: [CLLocationCoordinate2D]
     let laps: [LapData]
-    let weatherData: WeatherData?
     
     var mapPolyline: MKPolyline {
         MKPolyline(coordinates: route, count: route.count)

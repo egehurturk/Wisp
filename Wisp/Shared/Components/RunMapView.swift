@@ -78,26 +78,39 @@ struct RouteMapPolyline: View {
         self.interaction = interaction
         self.lineWidth = lineWidth
         // Seed the camera to fit the route
-        _camera = State(initialValue: .region(regionToFit(coordinates)))
+//        _camera = State(initialValue: .region(regionToFit(coordinates)))
+        _camera = State(initialValue: .rect(rectToFit(coordinates)))
     }
-
     
-    private func regionToFit(_ coords: [CLLocationCoordinate2D], pad: CLLocationDegrees = 0.01) -> MKCoordinateRegion {
-        guard let first = coords.first else {
-            return MKCoordinateRegion(center: .init(latitude: 0, longitude: 0),
-                                      span: .init(latitudeDelta: 180, longitudeDelta: 360))
-        }
-        var minLat = first.latitude,  maxLat = first.latitude
-        var minLon = first.longitude, maxLon = first.longitude
-        for c in coords {
-            minLat = min(minLat, c.latitude);  maxLat = max(maxLat, c.latitude)
-            minLon = min(minLon, c.longitude); maxLon = max(maxLon, c.longitude)
-        }
-        let center = CLLocationCoordinate2D(latitude: (minLat+maxLat)/2, longitude: (minLon+maxLon)/2)
-        let span = MKCoordinateSpan(latitudeDelta: (maxLat-minLat)+pad, longitudeDelta: (maxLon-minLon)+pad)
-        return MKCoordinateRegion(center: center, span: span)
-    }
+    private func rectToFit(_ coords: [CLLocationCoordinate2D],
+                           paddingMeters: Double = 120,
+                           minBoxMeters: Double = 350) -> MKMapRect {
+        guard !coords.isEmpty else { return MKMapRect.world }
 
+        // Build bounding rect from points
+        var rect = MKMapRect.null
+        for c in coords {
+            let p = MKMapPoint(c)
+            let r = MKMapRect(x: p.x, y: p.y, width: 0, height: 0)
+            rect = rect.union(r)
+        }
+
+        // If it’s basically a point/very tiny line, expand to a minimum box
+        if rect.size.width < 1e-6 || rect.size.height < 1e-6 {
+            // Convert desired meters to map points at this latitude
+            let mid = MKMapPoint(x: rect.midX, y: rect.midY)
+            let lat = mid.coordinate.latitude
+            let pointsPerMeter = MKMapPointsPerMeterAtLatitude(lat)
+            let half = (minBoxMeters * pointsPerMeter) / 2.0
+            rect = MKMapRect(x: mid.x - half, y: mid.y - half, width: half * 2, height: half * 2)
+        }
+
+        // Apply padding in meters
+        let centerLat = MKMapPoint(x: rect.midX, y: rect.midY).coordinate.latitude
+        let ppm = MKMapPointsPerMeterAtLatitude(centerLat)
+        let pad = paddingMeters * ppm
+        return rect.insetBy(dx: -pad, dy: -pad)
+    }
     
     var body: some View {
         Map(position: $camera, interactionModes: interaction) {
@@ -110,7 +123,7 @@ struct RouteMapPolyline: View {
             MapPolyline(coordinates: coordinates)
                 .stroke(.blue, lineWidth: lineWidth)
         }
-        .allowsHitTesting(true) // same behavior as your overlay
+        .allowsHitTesting(false)
     }
 }
 
