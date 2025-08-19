@@ -27,11 +27,13 @@ struct RunsView: View {
                         runsListContent
                     }
                     .padding(.vertical, 8)
+                    .padding(.bottom, 120)
                 }
             }
+            .toolbarBackground(.hidden, for: .navigationBar)
             .navigationTitle("Runs")
             .navigationBarTitleDisplayMode(.large)
-            .background(Color(UIColor.systemBackground))
+//            .background(Color(UIColor.systemBackground))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {

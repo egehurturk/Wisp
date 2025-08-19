@@ -36,6 +36,7 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
+            .padding(.bottom, 100)
         }
         .alert("Disconnect Strava", isPresented: $showingStravaDisconnectAlert) {
             Button("Cancel", role: .cancel) { }

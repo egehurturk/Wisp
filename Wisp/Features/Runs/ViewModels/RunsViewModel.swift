@@ -224,17 +224,21 @@ final class RunsViewModel: ObservableObject {
         errorMessage = nil
         
         do {
+            logger.info("1")
             guard let userId = supabaseManager.currentUser?.id else {
                 logger.warning("No authenticated user found when loading runs")
                 isLoading = false
                 return
             }
+            logger.info("2")
             
             // Load all runs for the user
             allRuns = try await supabaseManager.fetchRuns(for: userId)
-            
+            // TODO: Error: cancelled happens here when refreshed
+            logger.info("3")
             // Update filtered runs
             updateFilteredRuns()
+            logger.info("4")
             
             logger.info("Successfully loaded \(allRuns.count) runs")
         } catch {
