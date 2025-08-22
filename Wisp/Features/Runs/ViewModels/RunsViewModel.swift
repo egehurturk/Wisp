@@ -17,6 +17,7 @@ final class RunsViewModel: ObservableObject {
     // MARK: - Properties
     private let logger = Logger.ui
     private let supabaseManager = SupabaseManager.shared
+    private let cacheManager = CacheManager.shared
     private var cancellables = Set<AnyCancellable>()
     private var allRuns: [Run] = []
     
@@ -179,6 +180,10 @@ final class RunsViewModel: ObservableObject {
             allRuns.removeAll { $0.id == run.id }
             updateFilteredRuns()
             
+            // Invalidate caches for this run and user's runs
+            cacheManager.invalidateRouteCache(forRunId: run.id.uuidString)
+            cacheManager.invalidateRunsCache(forUserId: userId.uuidString)
+            
             // Post notification for other views to refresh
             NotificationCenter.default.post(name: .runDeleted, object: nil)
             
@@ -220,27 +225,35 @@ final class RunsViewModel: ObservableObject {
     }
     
     private func loadRunsData() async {
+        guard let userId = supabaseManager.currentUser?.id else {
+            logger.warning("No authenticated user found when loading runs")
+            return
+        }
+        
+        logger.info("Checking cache for runs from \(userId.uuidString)")
+        // Check cache first
+        if let cachedRuns = cacheManager.getCachedRuns(forUserId: userId.uuidString) {
+            allRuns = cachedRuns
+            updateFilteredRuns()
+            logger.debug("Loaded \(cachedRuns.count) runs from cache")
+            return
+        }
+        logger.info("No runs in cache")
+        
         isLoading = true
         errorMessage = nil
         
         do {
-            logger.info("1")
-            guard let userId = supabaseManager.currentUser?.id else {
-                logger.warning("No authenticated user found when loading runs")
-                isLoading = false
-                return
-            }
-            logger.info("2")
-            
-            // Load all runs for the user
+            // Load all runs for the user from database
             allRuns = try await supabaseManager.fetchRuns(for: userId)
-            // TODO: Error: cancelled happens here when refreshed
-            logger.info("3")
+            
+            // Cache the fetched runs
+            cacheManager.cacheRuns(allRuns, forUserId: userId.uuidString)
+            
             // Update filtered runs
             updateFilteredRuns()
-            logger.info("4")
             
-            logger.info("Successfully loaded \(allRuns.count) runs")
+            logger.info("Successfully loaded and cached \(allRuns.count) runs")
         } catch {
             logger.error("Failed to load runs", error: error)
             errorMessage = "Failed to load runs. Please try again."

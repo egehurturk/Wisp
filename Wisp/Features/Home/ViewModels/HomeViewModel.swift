@@ -34,6 +34,7 @@ final class HomeViewModel: ObservableObject {
     // MARK: - Properties
     private let logger = Logger.ui
     private let supabaseManager = SupabaseManager.shared
+    private let cacheManager = CacheManager.shared
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Computed Properties
@@ -137,6 +138,10 @@ final class HomeViewModel: ObservableObject {
             // Refresh chart data
             weeklyChartData = generateWeeklyChartData(from: allRuns, weekOffset: currentWeekOffset)
             
+            // Invalidate caches for this run and user's runs
+            cacheManager.invalidateRouteCache(forRunId: run.id.uuidString)
+            cacheManager.invalidateRunsCache(forUserId: userId.uuidString)
+            
             // Post notification for other views to refresh
             NotificationCenter.default.post(name: .runDeleted, object: nil)
             
@@ -165,16 +170,23 @@ final class HomeViewModel: ObservableObject {
     
     /// Load latest run for home screen
     private func loadLatestRun() async {
+        guard let userId = supabaseManager.currentUser?.id else {
+            logger.warning("No authenticated user found when loading latest run")
+            return
+        }
+        
+        // Check cache first for runs
+        if let cachedRuns = cacheManager.getCachedRuns(forUserId: userId.uuidString) {
+            latestRun = cachedRuns.max(by: { $0.startedAt < $1.startedAt })
+            analysisText = latestRun != nil ? "Nice run! Keep it up." : "Ready for your first run?"
+            logger.debug("Loaded latest run from cache")
+            return
+        }
+        
         isLoadingRuns = true
         errorMessage = nil
         
         do {
-            guard let userId = supabaseManager.currentUser?.id else {
-                logger.warning("No authenticated user found when loading latest run")
-                isLoadingRuns = false
-                return
-            }
-            
             latestRun = try await supabaseManager.fetchLatestRun(for: userId)
             
             // For now, use hardcoded analysis text as requested
@@ -236,19 +248,30 @@ final class HomeViewModel: ObservableObject {
     
     /// Load all runs for chart data
     private func loadAllRuns() async {
+        guard let userId = supabaseManager.currentUser?.id else {
+            logger.warning("No authenticated user found when loading runs for chart")
+            return
+        }
+        
+        // Check cache first for runs
+        if let cachedRuns = cacheManager.getCachedRuns(forUserId: userId.uuidString) {
+            allRuns = cachedRuns
+            weeklyChartData = generateWeeklyChartData(from: allRuns, weekOffset: currentWeekOffset)
+            logger.debug("Loaded \(cachedRuns.count) runs from cache for chart data")
+            return
+        }
+        
         do {
-            guard let userId = supabaseManager.currentUser?.id else {
-                logger.warning("No authenticated user found when loading runs for chart")
-                return
-            }
-            
-            // Load all runs for the user
+            // Load all runs for the user from database
             allRuns = try await supabaseManager.fetchRuns(for: userId)
+            
+            // Cache the fetched runs
+            cacheManager.cacheRuns(allRuns, forUserId: userId.uuidString)
             
             // Generate weekly chart data for current week offset
             weeklyChartData = generateWeeklyChartData(from: allRuns, weekOffset: currentWeekOffset)
             
-            logger.info("Successfully loaded \(allRuns.count) runs for chart data")
+            logger.info("Successfully loaded and cached \(allRuns.count) runs for chart data")
         } catch {
             logger.error("Failed to load runs for chart", error: error)
         }

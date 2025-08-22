@@ -13,6 +13,7 @@ struct RunCard: View {
     @State private var locationString = "Run Location"
     private let logger = Logger.ui
     private let supabaseManager = SupabaseManager.shared
+    private let cacheManager = CacheManager.shared
     
     // Callback for deletion
     var onDelete: ((Run) async -> Void)?
@@ -240,16 +241,27 @@ struct RunCard: View {
         // Only load route if run has location data
         guard run.hasLocation else { return }
         
+        // Check cache first
+        if let cachedRoute = cacheManager.getCachedRoute(forRunId: run.id.uuidString) {
+            self.route = cachedRoute
+            logger.debug("Loaded route from cache for run: \(run.id)")
+            return
+        }
+        
         isLoadingRoute = true
         
         Task {
             do {
-                let fetchedRoute = try await supabaseManager.fetchRunRoute(runId: run.id)
-                await MainActor.run {
-                    self.route = fetchedRoute
-                    self.isLoadingRoute = false
+                if let fetchedRoute = try await supabaseManager.fetchRunRoute(runId: run.id) {
+                    await MainActor.run {
+                        self.route = fetchedRoute
+                        self.isLoadingRoute = false
+                        
+                        // Cache the fetched route
+                        self.cacheManager.cacheRoute(fetchedRoute, forRunId: self.run.id.uuidString)
+                    }
+                    logger.info("Successfully loaded and cached route for run: \(run.id)")
                 }
-                logger.info("Successfully loaded route for run: \(run.id)")
             } catch {
                 await MainActor.run {
                     self.isLoadingRoute = false
@@ -257,6 +269,7 @@ struct RunCard: View {
                 logger.error(String(describing: error))
                 logger.error("Failed to load route for run: \(run.id)", error: error)
             }
+            
         }
     }
     
