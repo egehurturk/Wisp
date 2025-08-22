@@ -25,7 +25,7 @@ struct RunCard: View {
                 HStack(spacing: 8) {
                     // Strava badge
                     if run.dataSource?.lowercased() == "strava" {
-                        Image("strava-badge") // Replace with your actual image name
+                        Image("strava-badge")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 20, height: 20)

@@ -1,32 +1,45 @@
+TOP PRIORITY
+------------
 * Cache latest run in homepage --> performance improvements
 * Cache runs in runs list page 
     - it fetches from DB every time ??
     - use cache!!
-* When sync with strava, update values if there are already existing runs with the same id
-* Add a button that says "sync to strava" in run summary view
 * Bug in timers (maybe elapsed time = elapsed time + moving time oluyor?) 
-* UI Improvements:
-    * Runs page
-    * Runs card
-        * Detailed run page when clicked on
-        * Replay runs page
-    * Chart improvement
-        * Make it clickable, when clicked on the bar, it should show the respective run
-        * Chart should always start on Monday
-        * No data on week, it should show gridlines (now it doesn't)
 * Strava OAuth issue
 * Run view refresh it makes error
 
-* Maybes:
-    * Put locationString as a column in the db
+MEDIUM PRIORITY
+---------------
+* Runs card
+    * Detailed run page when clicked on
+    * Replay runs page
+* Chart improvement
+    * Make it clickable, when clicked on the bar, it should show the respective run
+    * Chart should always start on Monday
+    * No data on week, it should show gridlines (now it doesn't)
+* When sync with strava, update values if there are already existing runs with the same id
+* Add a button that says "sync to strava" in run summary view
+* When clicked on RunSummaryView, it should have a button to resume recording run
 
+LOW PRIORITY
+------------
+* Maps header lag 
+* Put locationString as a column in `runs` table instead of computing it
+
+NEW FEATURES
+------------
 * Integrate Apple Health
-* Ghosts
+* Ghosts 
     - Ghost CRUD
     - Ghost 
 * User profile
 * Settings page
 * Run unit preferences
+
+RELEASE TODO
+------------
+* WeatherKit integration with developer account
+   
 
 
 
